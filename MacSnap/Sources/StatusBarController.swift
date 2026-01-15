@@ -10,10 +10,23 @@ final class StatusBarController: NSObject {
     /// Track previous permission state to detect changes
     private var lastKnownPermissionState: Bool = false
     
+    /// Whether the app is still initializing
+    private var isInitializing: Bool = true
+    
+    /// Timer for pulsing animation during initialization
+    private var pulseTimer: Timer?
+    private var pulseDirection: CGFloat = -0.05
+    private var currentAlpha: CGFloat = 1.0
+    
     override init() {
         super.init()
         lastKnownPermissionState = WindowManager.shared.hasAccessibilityPermissions
         setupStatusItem()
+        startPulseAnimation()
+    }
+    
+    deinit {
+        stopPulseAnimation()
     }
     
     // MARK: - Setup
@@ -47,6 +60,55 @@ final class StatusBarController: NSObject {
         debugLog("StatusBarController: Setup complete - icon should be visible in menu bar")
     }
     
+    // MARK: - Initialization State
+    
+    /// Call this when the app has finished initializing (hotkeys started, etc.)
+    func markReady() {
+        guard isInitializing else { return }
+        
+        isInitializing = false
+        stopPulseAnimation()
+        refreshMenu()
+        debugLog("StatusBarController: App marked as ready")
+    }
+    
+    // MARK: - Pulse Animation
+    
+    private func startPulseAnimation() {
+        debugLog("StatusBarController: Starting pulse animation")
+        pulseTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.updatePulse()
+        }
+    }
+    
+    private func stopPulseAnimation() {
+        pulseTimer?.invalidate()
+        pulseTimer = nil
+        
+        // Reset to full opacity
+        if let button = statusItem?.button {
+            button.alphaValue = 1.0
+        }
+        debugLog("StatusBarController: Stopped pulse animation")
+    }
+    
+    private func updatePulse() {
+        guard let button = statusItem?.button else { return }
+        
+        currentAlpha += pulseDirection
+        
+        // Pulse between 0.3 and 1.0
+        if currentAlpha <= 0.3 {
+            currentAlpha = 0.3
+            pulseDirection = 0.05
+        } else if currentAlpha >= 1.0 {
+            currentAlpha = 1.0
+            pulseDirection = -0.05
+        }
+        
+        button.alphaValue = currentAlpha
+    }
+    
     // MARK: - Menu Creation
     
     private func createMenu() -> NSMenu {
@@ -68,9 +130,19 @@ final class StatusBarController: NSObject {
         }
         menu.addItem(statusItem)
         
-        let activeIcon = isActive ? "●" : "○"
-        let activeText = isActive ? "Snapping: Active" : "Snapping: Inactive"
-        let activeItem = NSMenuItem(title: "\(activeIcon) \(activeText)", action: nil, keyEquivalent: "")
+        // Snapping status - show "Starting..." during initialization
+        let activeItem: NSMenuItem
+        if isInitializing {
+            activeItem = NSMenuItem(title: "◐ Snapping: Starting...", action: nil, keyEquivalent: "")
+            activeItem.attributedTitle = NSAttributedString(
+                string: "◐ Snapping: Starting...",
+                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+            )
+        } else {
+            let activeIcon = isActive ? "●" : "○"
+            let activeText = isActive ? "Snapping: Active" : "Snapping: Inactive"
+            activeItem = NSMenuItem(title: "\(activeIcon) \(activeText)", action: nil, keyEquivalent: "")
+        }
         activeItem.isEnabled = false
         menu.addItem(activeItem)
         
@@ -88,13 +160,14 @@ final class StatusBarController: NSObject {
             menu.addItem(NSMenuItem.separator())
         }
         
-        // Enable/Disable toggle
+        // Enable/Disable toggle (disabled while initializing)
         let enableItem = NSMenuItem(
-            title: isActive ? "Disable Snapping" : "Enable Snapping",
-            action: #selector(toggleEnabled),
-            keyEquivalent: "e"
+            title: isInitializing ? "Starting..." : (isActive ? "Disable Snapping" : "Enable Snapping"),
+            action: isInitializing ? nil : #selector(toggleEnabled),
+            keyEquivalent: isInitializing ? "" : "e"
         )
         enableItem.target = self
+        enableItem.isEnabled = !isInitializing
         menu.addItem(enableItem)
         
         menu.addItem(NSMenuItem.separator())
@@ -150,6 +223,15 @@ final class StatusBarController: NSObject {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Show Welcome Screen
+        let welcomeItem = NSMenuItem(
+            title: "Show Welcome Screen...",
+            action: #selector(showWelcomeScreen),
+            keyEquivalent: ""
+        )
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
+        
         // Open Accessibility Settings
         let accessItem = NSMenuItem(
             title: "Open Accessibility Settings...",
@@ -163,8 +245,11 @@ final class StatusBarController: NSObject {
     }
     
     @objc private func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        NSWorkspace.shared.open(url)
+        AppUtils.openAccessibilitySettings()
+    }
+    
+    @objc private func showWelcomeScreen() {
+        OnboardingWindowController.shared.showWindow()
     }
     
     private func createShortcutsMenu() -> NSMenu {
@@ -225,25 +310,7 @@ final class StatusBarController: NSObject {
     }
     
     @objc private func restartApp() {
-        debugLog("StatusBarController: Restarting MacSnap...")
-        
-        // Get the path to the current app
-        let appURL = Bundle.main.bundleURL
-        
-        // Use NSWorkspace to relaunch
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        
-        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { _, error in
-            if let error = error {
-                debugLog("StatusBarController: Failed to relaunch: \(error)")
-            }
-        }
-        
-        // Quit the current instance after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSApplication.shared.terminate(nil)
-        }
+        AppUtils.restartApp()
     }
     
     @objc private func quitApp() {
@@ -354,8 +421,8 @@ extension StatusBarController: NSMenuDelegate {
         NSUserNotificationCenter.default.deliver(notification)
         
         // Restart after a brief moment
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.restartApp()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            AppUtils.restartApp()
         }
     }
 }

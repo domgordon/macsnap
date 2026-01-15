@@ -81,6 +81,37 @@ final class WindowManager {
         return setWindowFrame(window, to: newFrame)
     }
     
+    // MARK: - Coordinate Conversion
+    
+    /// Height of the primary screen, used for coordinate conversion
+    private var mainScreenHeight: CGFloat {
+        NSScreen.screens.first?.frame.height ?? 0
+    }
+    
+    /// Convert a frame from AX coordinates (top-left origin, Y-down) to NSScreen coordinates (bottom-left origin, Y-up)
+    /// - Parameter axFrame: Frame in AX coordinate system where position is top-left corner
+    /// - Returns: Frame in NSScreen coordinate system where origin is bottom-left corner
+    private func convertAXFrameToNSScreen(_ axFrame: CGRect) -> CGRect {
+        // AX: position.y is top of window, Y increases downward
+        // NSScreen: origin.y is bottom of window, Y increases upward
+        // Bottom of window in AX coords: axFrame.origin.y + axFrame.height
+        // In NSScreen: origin.y = mainScreenHeight - (ax_top + height) = mainScreenHeight - ax_bottom
+        let nsY = mainScreenHeight - (axFrame.origin.y + axFrame.height)
+        return CGRect(x: axFrame.origin.x, y: nsY, width: axFrame.width, height: axFrame.height)
+    }
+    
+    /// Convert a frame from NSScreen coordinates (bottom-left origin, Y-up) to AX coordinates (top-left origin, Y-down)
+    /// - Parameter nsFrame: Frame in NSScreen coordinate system where origin is bottom-left corner
+    /// - Returns: Frame in AX coordinate system where position is top-left corner
+    private func convertNSScreenFrameToAX(_ nsFrame: CGRect) -> CGRect {
+        // NSScreen: origin.y is bottom of window, Y increases upward
+        // AX: position.y is top of window, Y increases downward
+        // Top of window in NSScreen coords: nsFrame.origin.y + nsFrame.height
+        // In AX: position.y = mainScreenHeight - (ns_bottom + height) = mainScreenHeight - ns_top
+        let axY = mainScreenHeight - (nsFrame.origin.y + nsFrame.height)
+        return CGRect(x: nsFrame.origin.x, y: axY, width: nsFrame.width, height: nsFrame.height)
+    }
+    
     // MARK: - Private Helpers
     
     /// Get the frontmost window of the frontmost application
@@ -110,14 +141,23 @@ final class WindowManager {
         return (window as! AXUIElement)
     }
     
-    /// Get the current frame of a window
+    /// Get the current frame of a window in NSScreen coordinates
+    /// - Parameter window: The window to get the frame for
+    /// - Returns: The window frame in NSScreen coordinates (bottom-left origin, Y-up)
     private func getWindowFrame(_ window: AXUIElement) -> CGRect? {
         guard let position = getWindowPosition(window),
               let size = getWindowSize(window) else {
             return nil
         }
         
-        return CGRect(origin: position, size: size)
+        // AX API returns position as top-left corner in top-left origin coords
+        let axFrame = CGRect(origin: position, size: size)
+        debugLog("WindowManager: Raw AX frame: \(axFrame), mainScreenHeight: \(mainScreenHeight)")
+        
+        // Convert to NSScreen coordinates for consistent usage throughout
+        let nsFrame = convertAXFrameToNSScreen(axFrame)
+        debugLog("WindowManager: Converted to NSScreen frame: \(nsFrame)")
+        return nsFrame
     }
     
     /// Get window position
@@ -153,26 +193,43 @@ final class WindowManager {
     }
     
     /// Set the frame of a window (position and size)
-    /// Handles coordinate conversion from NSScreen (bottom-left origin) to AXUIElement (top-left origin)
+    /// - Parameters:
+    ///   - window: The window to resize/reposition
+    ///   - frame: Target frame in NSScreen coordinates (bottom-left origin, Y-up)
+    /// - Returns: true if successful
     private func setWindowFrame(_ window: AXUIElement, to frame: CGRect) -> Bool {
-        // Convert NSScreen coordinates to AXUIElement coordinates
-        // NSScreen: Y=0 at bottom, origin is bottom-left of window
-        // AXUIElement: Y=0 at top, position is top-left of window
-        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? 0
+        debugLog("WindowManager: setWindowFrame called with NSScreen frame: \(frame)")
         
-        // In NSScreen coords: frame.origin.y is bottom of window
-        // In AX coords: we need top of window, which is origin.y + height in NSScreen
-        // Then flip: axY = mainScreenHeight - (nsY + height)
-        let axY = mainScreenHeight - (frame.origin.y + frame.size.height)
-        let axPosition = CGPoint(x: frame.origin.x, y: axY)
+        // Convert from NSScreen coordinates to AX coordinates
+        let axFrame = convertNSScreenFrameToAX(frame)
+        let axPosition = axFrame.origin
+        debugLog("WindowManager: Converted to AX position: \(axPosition), size: \(frame.size)")
         
-        // Set size first, then position
-        let sizeSuccess = setWindowSizeRaw(window, to: frame.size)
+        // Set size first to establish dimensions
+        var sizeSuccess = setWindowSizeRaw(window, to: frame.size)
+        debugLog("WindowManager: Size set success: \(sizeSuccess)")
+        
+        // Set position after size
         let positionSuccess = setWindowPositionRaw(window, to: axPosition)
+        debugLog("WindowManager: Position set success: \(positionSuccess)")
         
-        // Set position again after size change to handle edge cases
-        if sizeSuccess {
-            _ = setWindowPositionRaw(window, to: axPosition)
+        // Some apps don't properly apply size/position on first attempt
+        // Re-apply both to ensure the frame is fully set
+        sizeSuccess = setWindowSizeRaw(window, to: frame.size)
+        _ = setWindowPositionRaw(window, to: axPosition)
+        
+        // Verify the result
+        if let finalPosition = getWindowPosition(window), let finalSize = getWindowSize(window) {
+            debugLog("WindowManager: Final AX position: \(finalPosition), size: \(finalSize)")
+            
+            // Check if size was applied correctly (within 2px tolerance)
+            let sizeDiff = abs(finalSize.height - frame.size.height)
+            if sizeDiff > 2 {
+                debugLog("WindowManager: WARNING - Size mismatch! Expected height \(frame.size.height), got \(finalSize.height)")
+                // Try one more time
+                _ = setWindowSizeRaw(window, to: frame.size)
+                _ = setWindowPositionRaw(window, to: axPosition)
+            }
         }
         
         return positionSuccess && sizeSuccess

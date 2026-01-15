@@ -22,15 +22,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private let windowManager = WindowManager.shared
     private let hotkeyManager = HotkeyManager.shared
+    private let onboardingManager = OnboardingManager.shared
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("AppDelegate: Starting up...")
         
-        // Check accessibility permissions (don't block with modal)
+        // Check accessibility permissions
         let hasPerms = windowManager.hasAccessibilityPermissions
         debugLog("AppDelegate: Accessibility permissions = \(hasPerms)")
         
-        // Initialize status bar first (so user can see the app)
+        // Initialize status bar first (so user can see the app with loading state)
         debugLog("AppDelegate: Creating StatusBarController...")
         statusBarController = StatusBarController()
         
@@ -38,8 +39,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugLog("AppDelegate: Auto-enabling snapping...")
         hotkeyManager.start()
         
-        // If no permissions, just request them (non-blocking) and show in menu
-        if !hasPerms {
+        // Mark initialization complete - stops the loading animation
+        statusBarController?.markReady()
+        
+        // Show onboarding on first launch
+        if onboardingManager.isFirstLaunch {
+            debugLog("AppDelegate: First launch detected, showing onboarding...")
+            showOnboarding()
+        } else if !hasPerms {
+            // Not first launch but missing permissions - prompt quietly
             debugLog("AppDelegate: Requesting accessibility permissions...")
             windowManager.requestAccessibilityPermissions()
         }
@@ -52,4 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         print("MacSnap: Shutting down")
     }
     
+    // MARK: - Onboarding
+    
+    private func showOnboarding() {
+        OnboardingWindowController.shared.showWindow()
+    }
 }

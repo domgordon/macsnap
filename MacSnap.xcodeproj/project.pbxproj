@@ -14,6 +14,10 @@
 		A1000005 /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* WindowManager.swift */; };
 		A1000006 /* ScreenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000006 /* ScreenManager.swift */; };
 		A1000007 /* SnapPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007 /* SnapPosition.swift */; };
+		A1000008 /* AppUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010 /* AppUtils.swift */; };
+		A1000009 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* OnboardingManager.swift */; };
+		A1000010 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* OnboardingView.swift */; };
+		A1000011 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* OnboardingWindowController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +30,10 @@
 		A2000007 /* SnapPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapPosition.swift; sourceTree = "<group>"; };
 		A2000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000009 /* MacSnap.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacSnap.entitlements; sourceTree = "<group>"; };
+		A2000010 /* AppUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUtils.swift; sourceTree = "<group>"; };
+		A2000011 /* OnboardingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingManager.swift; sourceTree = "<group>"; };
+		A2000012 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A2000013 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -71,11 +79,15 @@
 			children = (
 				A2000001 /* MacSnapApp.swift */,
 				A2000002 /* AppDelegate.swift */,
+				A2000010 /* AppUtils.swift */,
 				A2000003 /* StatusBarController.swift */,
 				A2000004 /* HotkeyManager.swift */,
 				A2000005 /* WindowManager.swift */,
 				A2000006 /* ScreenManager.swift */,
 				A2000007 /* SnapPosition.swift */,
+				A2000011 /* OnboardingManager.swift */,
+				A2000012 /* OnboardingView.swift */,
+				A2000013 /* OnboardingWindowController.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -139,11 +151,15 @@
 			files = (
 				A1000001 /* MacSnapApp.swift in Sources */,
 				A1000002 /* AppDelegate.swift in Sources */,
+				A1000008 /* AppUtils.swift in Sources */,
 				A1000003 /* StatusBarController.swift in Sources */,
 				A1000004 /* HotkeyManager.swift in Sources */,
 				A1000005 /* WindowManager.swift in Sources */,
 				A1000006 /* ScreenManager.swift in Sources */,
 				A1000007 /* SnapPosition.swift in Sources */,
+				A1000009 /* OnboardingManager.swift in Sources */,
+				A1000010 /* OnboardingView.swift in Sources */,
+				A1000011 /* OnboardingWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
