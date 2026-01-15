@@ -14,7 +14,9 @@ struct OnboardingView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Top padding to clear titlebar
             Spacer()
+                .frame(height: 32)
             
             // Icon
             Image(systemName: "rectangle.split.2x1")
@@ -66,7 +68,7 @@ struct OnboardingView: View {
                     .frame(height: 24)
             }
         }
-        .frame(width: 320, height: 340)
+        .frame(width: 320, height: 380)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear(perform: onAppear)
         .onReceive(timer) { _ in
