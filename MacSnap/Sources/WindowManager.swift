@@ -1,6 +1,20 @@
 import AppKit
 import ApplicationServices
 
+/// Information about a window for the snap assist picker
+struct WindowInfo {
+    let windowID: CGWindowID
+    let ownerPID: pid_t
+    let ownerName: String
+    let title: String
+    let frame: CGRect  // In NSScreen coordinates
+    
+    /// Get the app icon for this window's owner
+    var appIcon: NSImage? {
+        NSRunningApplication(processIdentifier: ownerPID)?.icon
+    }
+}
+
 /// Manages window manipulation using macOS Accessibility APIs
 final class WindowManager {
     
@@ -32,6 +46,14 @@ final class WindowManager {
     /// - Returns: true if successful
     @discardableResult
     func snapFrontmostWindow(to position: SnapPosition) -> Bool {
+        // If snap assist overlay is showing, block window movement (modal lock)
+        if SnapAssistController.shared.isShowingAssist {
+            debugLog("WindowManager: Snap blocked - assist overlay is showing")
+            return false
+        }
+        
+        let frontPID = frontmostAppPID
+        
         guard let window = getFrontmostWindow() else {
             debugLog("WindowManager: No frontmost window found")
             return false
@@ -52,7 +74,18 @@ final class WindowManager {
         let targetFrame = position.frame(in: visibleFrame, fullFrame: fullFrame)
         debugLog("WindowManager: Target frame for \(position): \(targetFrame)")
         
-        return setWindowFrame(window, to: targetFrame)
+        let success = setWindowFrame(window, to: targetFrame)
+        
+        // Schedule snap assist for half-screen snaps (cancellable delay)
+        if success && (position == .leftHalf || position == .rightHalf) {
+            SnapAssistController.shared.scheduleAssist(
+                for: position,
+                on: screen,
+                excludingPID: frontPID
+            )
+        }
+        
+        return success
     }
     
     /// Move the frontmost window to an adjacent monitor
@@ -79,6 +112,243 @@ final class WindowManager {
         
         let newFrame = screenManager.translateFrame(windowFrame, from: currentScreen, to: targetScreen)
         return setWindowFrame(window, to: newFrame)
+    }
+    
+    // MARK: - Snap Assist Support
+    
+    /// Get the process ID of the frontmost application
+    var frontmostAppPID: pid_t? {
+        NSWorkspace.shared.frontmostApplication?.processIdentifier
+    }
+    
+    /// Get all visible windows except those belonging to the specified app
+    /// - Parameter excludePID: Process ID to exclude (typically the frontmost app)
+    /// - Parameter screen: The screen to get windows for
+    /// - Returns: Array of WindowInfo for eligible windows
+    func getOtherWindows(excludingPID excludePID: pid_t?, on screen: NSScreen) -> [WindowInfo] {
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            debugLog("WindowManager: Failed to get window list")
+            return []
+        }
+        
+        var windows: [WindowInfo] = []
+        
+        for windowInfo in windowList {
+            // Get required properties
+            guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                  let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                  let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let layer = windowInfo[kCGWindowLayer as String] as? Int else {
+                continue
+            }
+            
+            // Skip windows from excluded app
+            if let excludePID = excludePID, ownerPID == excludePID {
+                continue
+            }
+            
+            // Skip non-normal windows (layer 0 = normal windows)
+            if layer != 0 {
+                continue
+            }
+            
+            // Skip very small windows (likely tooltips, etc.)
+            let width = boundsDict["Width"] ?? 0
+            let height = boundsDict["Height"] ?? 0
+            if width < 100 || height < 100 {
+                continue
+            }
+            
+            // Skip MacSnap itself
+            if ownerName == "MacSnap" {
+                continue
+            }
+            
+            // Get window title (optional)
+            let title = windowInfo[kCGWindowName as String] as? String ?? ownerName
+            
+            // Convert CG bounds to NSScreen coordinates
+            let cgX = boundsDict["X"] ?? 0
+            let cgY = boundsDict["Y"] ?? 0
+            let cgFrame = CGRect(x: cgX, y: cgY, width: width, height: height)
+            let nsFrame = convertAXFrameToNSScreen(cgFrame)
+            
+            // Check if window is on the specified screen
+            let windowCenter = CGPoint(x: nsFrame.midX, y: nsFrame.midY)
+            if !screen.frame.contains(windowCenter) {
+                continue
+            }
+            
+            let info = WindowInfo(
+                windowID: windowID,
+                ownerPID: ownerPID,
+                ownerName: ownerName,
+                title: title,
+                frame: nsFrame
+            )
+            windows.append(info)
+        }
+        
+        debugLog("WindowManager: Found \(windows.count) other windows")
+        return windows
+    }
+    
+    /// Check if a screen half is already occupied by a VISIBLE snapped window
+    /// Only returns true if the window is snapped AND is one of the top 2 windows (not buried)
+    /// - Parameters:
+    ///   - position: The snap position to check (leftHalf or rightHalf)
+    ///   - screen: The screen to check on
+    ///   - excludePID: Process ID to exclude from the check
+    /// - Returns: true if the position is visibly occupied by a properly snapped window
+    func isPositionOccupied(_ position: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) -> Bool {
+        let targetFrame = position.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+        let positionTolerance: CGFloat = 5.0
+        let sizeTolerance: CGFloat = 20.0
+        
+        // Windows are returned in z-order (front to back)
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+        
+        // Only check the top few windows - if a snapped window is buried, it doesn't count
+        var checkedCount = 0
+        let maxToCheck = 3  // Only look at top 3 windows
+        
+        for windowInfo in windowList {
+            guard let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let layer = windowInfo[kCGWindowLayer as String] as? Int,
+                  let ownerName = windowInfo[kCGWindowOwnerName as String] as? String else {
+                continue
+            }
+            
+            // Skip excluded app and non-normal windows
+            if let excludePID = excludePID, ownerPID == excludePID { continue }
+            if layer != 0 { continue }
+            if ownerName == "MacSnap" { continue }
+            
+            let width = boundsDict["Width"] ?? 0
+            let height = boundsDict["Height"] ?? 0
+            
+            // Skip small windows
+            if width < 200 || height < 200 { continue }
+            
+            checkedCount += 1
+            if checkedCount > maxToCheck {
+                // Window is too far back in z-order, don't count it as "occupied"
+                break
+            }
+            
+            let cgX = boundsDict["X"] ?? 0
+            let cgY = boundsDict["Y"] ?? 0
+            let cgFrame = CGRect(x: cgX, y: cgY, width: width, height: height)
+            let nsFrame = convertAXFrameToNSScreen(cgFrame)
+            
+            let matchesX = abs(nsFrame.origin.x - targetFrame.origin.x) < positionTolerance
+            let matchesY = abs(nsFrame.origin.y - targetFrame.origin.y) < positionTolerance
+            let matchesWidth = abs(nsFrame.width - targetFrame.width) < sizeTolerance
+            let matchesHeight = abs(nsFrame.height - targetFrame.height) < sizeTolerance
+            
+            if matchesX && matchesY && matchesWidth && matchesHeight {
+                debugLog("WindowManager: Position \(position) is visibly occupied by \(ownerName)")
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// Get the opposite half position
+    func oppositeHalf(of position: SnapPosition) -> SnapPosition? {
+        switch position {
+        case .leftHalf: return .rightHalf
+        case .rightHalf: return .leftHalf
+        default: return nil
+        }
+    }
+    
+    /// Snap a specific window (by window ID) to a position
+    /// - Parameters:
+    ///   - windowID: The CGWindowID of the window to snap
+    ///   - ownerPID: The process ID that owns the window
+    ///   - position: The target snap position
+    /// - Returns: true if successful
+    @discardableResult
+    func snapWindow(windowID: CGWindowID, ownerPID: pid_t, to position: SnapPosition) -> Bool {
+        // Get the app's AX element
+        let appElement = AXUIElementCreateApplication(ownerPID)
+        
+        // Get all windows of the app
+        var windowsRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+        
+        guard result == .success, let windows = windowsRef as? [AXUIElement] else {
+            debugLog("WindowManager: Failed to get windows for PID \(ownerPID)")
+            return false
+        }
+        
+        // Find the matching window by comparing position/size
+        // Note: AX doesn't expose CGWindowID directly, so we match by frame
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+        
+        // Find the CG window info to get its frame
+        var targetCGFrame: CGRect?
+        for info in windowList {
+            if let wid = info[kCGWindowNumber as String] as? CGWindowID, wid == windowID,
+               let bounds = info[kCGWindowBounds as String] as? [String: CGFloat] {
+                targetCGFrame = CGRect(
+                    x: bounds["X"] ?? 0,
+                    y: bounds["Y"] ?? 0,
+                    width: bounds["Width"] ?? 0,
+                    height: bounds["Height"] ?? 0
+                )
+                break
+            }
+        }
+        
+        guard let cgFrame = targetCGFrame else {
+            debugLog("WindowManager: Could not find frame for window \(windowID)")
+            return false
+        }
+        
+        // Find matching AX window
+        for axWindow in windows {
+            guard let axPosition = getWindowPosition(axWindow),
+                  let axSize = getWindowSize(axWindow) else {
+                continue
+            }
+            
+            // Compare frames (AX position is in same coordinate system as CG bounds)
+            let tolerance: CGFloat = 5.0
+            if abs(axPosition.x - cgFrame.origin.x) < tolerance &&
+               abs(axPosition.y - cgFrame.origin.y) < tolerance &&
+               abs(axSize.width - cgFrame.width) < tolerance &&
+               abs(axSize.height - cgFrame.height) < tolerance {
+                
+                // Found the window - activate it and snap with animation
+                let app = NSRunningApplication(processIdentifier: ownerPID)
+                app?.activate(options: [.activateIgnoringOtherApps])
+                
+                let startFrame = self.convertAXFrameToNSScreen(CGRect(origin: axPosition, size: axSize))
+                let screen = self.screenManager.screen(for: startFrame)
+                let targetFrame = position.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+                
+                // Animate the window into place
+                self.animateWindowFrame(axWindow, from: startFrame, to: targetFrame)
+                
+                debugLog("WindowManager: Snapping window \(windowID) to \(position)")
+                return true
+            }
+        }
+        
+        debugLog("WindowManager: Could not find matching AX window for \(windowID)")
+        return false
     }
     
     // MARK: - Coordinate Conversion
@@ -190,6 +460,31 @@ final class WindowManager {
             return size
         }
         return nil
+    }
+    
+    /// Animate window frame from current position to target
+    /// Uses ease-out timing for a smooth, natural feel
+    private func animateWindowFrame(_ window: AXUIElement, from startFrame: CGRect, to endFrame: CGRect) {
+        let duration: TimeInterval = 0.15
+        let steps = 8
+        let stepDuration = duration / Double(steps)
+        
+        for step in 1...steps {
+            let progress = Double(step) / Double(steps)
+            // Ease-out: starts fast, slows down at the end
+            let easedProgress = 1 - pow(1 - progress, 3)
+            
+            let currentFrame = CGRect(
+                x: startFrame.origin.x + (endFrame.origin.x - startFrame.origin.x) * easedProgress,
+                y: startFrame.origin.y + (endFrame.origin.y - startFrame.origin.y) * easedProgress,
+                width: startFrame.width + (endFrame.width - startFrame.width) * easedProgress,
+                height: startFrame.height + (endFrame.height - startFrame.height) * easedProgress
+            )
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(step)) { [weak self] in
+                _ = self?.setWindowFrame(window, to: currentFrame)
+            }
+        }
     }
     
     /// Set the frame of a window (position and size)

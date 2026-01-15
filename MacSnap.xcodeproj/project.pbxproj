@@ -18,6 +18,9 @@
 		A1000009 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* OnboardingManager.swift */; };
 		A1000010 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* OnboardingView.swift */; };
 		A1000011 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* OnboardingWindowController.swift */; };
+		A1000012 /* SnapAssistController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* SnapAssistController.swift */; };
+		A1000013 /* SnapAssistWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015 /* SnapAssistWindow.swift */; };
+		A1000014 /* WindowThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000016 /* WindowThumbnailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +37,9 @@
 		A2000011 /* OnboardingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingManager.swift; sourceTree = "<group>"; };
 		A2000012 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A2000013 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
+		A2000014 /* SnapAssistController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAssistController.swift; sourceTree = "<group>"; };
+		A2000015 /* SnapAssistWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAssistWindow.swift; sourceTree = "<group>"; };
+		A2000016 /* WindowThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowThumbnailView.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -88,8 +94,19 @@
 				A2000011 /* OnboardingManager.swift */,
 				A2000012 /* OnboardingView.swift */,
 				A2000013 /* OnboardingWindowController.swift */,
+				A5000005 /* SnapAssist */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		A5000005 /* SnapAssist */ = {
+			isa = PBXGroup;
+			children = (
+				A2000014 /* SnapAssistController.swift */,
+				A2000015 /* SnapAssistWindow.swift */,
+				A2000016 /* WindowThumbnailView.swift */,
+			);
+			path = SnapAssist;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -160,6 +177,9 @@
 				A1000009 /* OnboardingManager.swift in Sources */,
 				A1000010 /* OnboardingView.swift in Sources */,
 				A1000011 /* OnboardingWindowController.swift in Sources */,
+				A1000012 /* SnapAssistController.swift in Sources */,
+				A1000013 /* SnapAssistWindow.swift in Sources */,
+				A1000014 /* WindowThumbnailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
