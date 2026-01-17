@@ -22,6 +22,9 @@ final class WindowManager {
     
     private let screenManager = ScreenManager.shared
     
+    /// Stores pre-snap window frames by process ID, used to restore windows to their original size
+    private var preSnapFrames: [pid_t: CGRect] = [:]
+    
     private init() {}
     
     // MARK: - Accessibility Permissions
@@ -68,16 +71,23 @@ final class WindowManager {
         let visibleFrame = screen.visibleFrame
         let fullFrame = screen.frame
         
+        // Save pre-snap frame if window is not already snapped (for middle state restoration)
+        if let pid = frontPID, detectCurrentSnapPosition() == nil {
+            preSnapFrames[pid] = windowFrame
+            debugLog("WindowManager: Saved pre-snap frame for PID \(pid): \(windowFrame)")
+        }
+        
         debugLog("WindowManager: fullFrame: \(fullFrame), visibleFrame: \(visibleFrame)")
         debugLog("WindowManager: menuBarHeight: \(fullFrame.maxY - visibleFrame.maxY), dockHeight: \(visibleFrame.minY - fullFrame.minY)")
         
         let targetFrame = position.frame(in: visibleFrame, fullFrame: fullFrame)
         debugLog("WindowManager: Target frame for \(position): \(targetFrame)")
         
-        let success = setWindowFrame(window, to: targetFrame)
+        // Animate the transition for smooth feel
+        animateWindowFrame(window, from: windowFrame, to: targetFrame)
         
         // Schedule snap assist for half-screen snaps (cancellable delay)
-        if success && (position == .leftHalf || position == .rightHalf) {
+        if position == .leftHalf || position == .rightHalf {
             SnapAssistController.shared.scheduleAssist(
                 for: position,
                 on: screen,
@@ -85,7 +95,7 @@ final class WindowManager {
             )
         }
         
-        return success
+        return true
     }
     
     /// Move the frontmost window to an adjacent monitor
@@ -111,7 +121,70 @@ final class WindowManager {
         }
         
         let newFrame = screenManager.translateFrame(windowFrame, from: currentScreen, to: targetScreen)
-        return setWindowFrame(window, to: newFrame)
+        animateWindowFrame(window, from: windowFrame, to: newFrame)
+        return true
+    }
+    
+    /// Unsnap the frontmost window to a centered "middle" state
+    /// Restores the window's pre-snap size if available, otherwise uses a centered half-width fallback
+    /// - Returns: true if successful
+    @discardableResult
+    func unsnapToMiddle() -> Bool {
+        guard let window = getFrontmostWindow() else {
+            debugLog("WindowManager: No frontmost window found")
+            return false
+        }
+        
+        guard let windowFrame = getWindowFrame(window) else {
+            debugLog("WindowManager: Could not get window frame")
+            return false
+        }
+        
+        let screen = screenManager.screen(for: windowFrame)
+        let visibleFrame = screen.visibleFrame
+        let fullFrame = screen.frame
+        
+        // Calculate usable area (respecting menu bar and dock)
+        let menuBarHeight = fullFrame.maxY - visibleFrame.maxY
+        let dockHeight = visibleFrame.minY - fullFrame.minY
+        let dockLeftWidth = visibleFrame.minX - fullFrame.minX
+        let dockRightWidth = fullFrame.maxX - visibleFrame.maxX
+        
+        let usableX = fullFrame.origin.x + dockLeftWidth
+        let usableY = fullFrame.origin.y + dockHeight
+        let usableWidth = fullFrame.width - dockLeftWidth - dockRightWidth
+        let usableHeight = fullFrame.height - menuBarHeight - dockHeight
+        
+        let targetFrame: CGRect
+        
+        if let pid = frontmostAppPID, let savedFrame = preSnapFrames[pid] {
+            // Restore saved size, centered horizontally on screen
+            let centeredX = usableX + (usableWidth - savedFrame.width) / 2
+            targetFrame = CGRect(
+                x: centeredX,
+                y: savedFrame.origin.y,
+                width: savedFrame.width,
+                height: savedFrame.height
+            )
+            // Clear the saved frame since we're restoring it
+            preSnapFrames.removeValue(forKey: pid)
+            debugLog("WindowManager: Restoring pre-snap frame for PID \(pid), centered at \(targetFrame)")
+        } else {
+            // Fallback: centered half-width, full height
+            let halfWidth = usableWidth / 2
+            let centeredX = usableX + (usableWidth - halfWidth) / 2
+            targetFrame = CGRect(
+                x: centeredX,
+                y: usableY,
+                width: halfWidth,
+                height: usableHeight
+            )
+            debugLog("WindowManager: Using fallback center-half frame: \(targetFrame)")
+        }
+        
+        // Animate the transition for smooth feel
+        animateWindowFrame(window, from: windowFrame, to: targetFrame)
+        return true
     }
     
     // MARK: - Snap Assist Support
@@ -463,28 +536,45 @@ final class WindowManager {
     }
     
     /// Animate window frame from current position to target
-    /// Uses ease-out timing for a smooth, natural feel
+    /// Uses ease-out timing for a snappy, smooth feel
+    /// - Parameters:
+    ///   - window: The AXUIElement window to animate
+    ///   - startFrame: Starting frame in NSScreen coordinates
+    ///   - endFrame: Target frame in NSScreen coordinates
     private func animateWindowFrame(_ window: AXUIElement, from startFrame: CGRect, to endFrame: CGRect) {
-        let duration: TimeInterval = 0.15
-        let steps = 8
+        // Snappy animation: 80ms total, 6 steps for smooth interpolation
+        let duration: TimeInterval = 0.08
+        let steps = 6
         let stepDuration = duration / Double(steps)
         
         for step in 1...steps {
             let progress = Double(step) / Double(steps)
-            // Ease-out: starts fast, slows down at the end
+            // Ease-out cubic: starts fast, decelerates smoothly
             let easedProgress = 1 - pow(1 - progress, 3)
             
-            let currentFrame = CGRect(
-                x: startFrame.origin.x + (endFrame.origin.x - startFrame.origin.x) * easedProgress,
-                y: startFrame.origin.y + (endFrame.origin.y - startFrame.origin.y) * easedProgress,
-                width: startFrame.width + (endFrame.width - startFrame.width) * easedProgress,
-                height: startFrame.height + (endFrame.height - startFrame.height) * easedProgress
-            )
+            let currentFrame = interpolateFrame(from: startFrame, to: endFrame, progress: easedProgress)
             
             DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(step)) { [weak self] in
-                _ = self?.setWindowFrame(window, to: currentFrame)
+                self?.setWindowFrameRaw(window, to: currentFrame)
             }
         }
+    }
+    
+    /// Interpolate between two frames
+    private func interpolateFrame(from start: CGRect, to end: CGRect, progress: Double) -> CGRect {
+        CGRect(
+            x: start.origin.x + (end.origin.x - start.origin.x) * progress,
+            y: start.origin.y + (end.origin.y - start.origin.y) * progress,
+            width: start.width + (end.width - start.width) * progress,
+            height: start.height + (end.height - start.height) * progress
+        )
+    }
+    
+    /// Set window frame without retries (used for animation steps)
+    private func setWindowFrameRaw(_ window: AXUIElement, to frame: CGRect) {
+        let axFrame = convertNSScreenFrameToAX(frame)
+        setWindowSizeRaw(window, to: frame.size)
+        setWindowPositionRaw(window, to: axFrame.origin)
     }
     
     /// Set the frame of a window (position and size)
@@ -630,8 +720,8 @@ final class WindowManager {
     
     /// Determine the target position when pressing "left" based on current snap state
     /// - Parameter current: The current snap position (nil if unsnapped)
-    /// - Returns: The target snap position to transition to
-    func targetPositionForLeft(from current: SnapPosition?) -> SnapPosition {
+    /// - Returns: The target snap position, or nil to indicate "unsnap to middle"
+    func targetPositionForLeft(from current: SnapPosition?) -> SnapPosition? {
         guard let current = current else {
             // Unsnapped → Left Half
             return .leftHalf
@@ -650,16 +740,20 @@ final class WindowManager {
         case .bottomRightQuarter:
             return .bottomLeftQuarter
             
+        // Right half → middle state first
+        case .rightHalf:
+            return nil
+            
         // Already on left side or other positions → Left Half
-        case .leftHalf, .rightHalf, .topLeftQuarter, .bottomLeftQuarter, .maximize:
+        case .leftHalf, .topLeftQuarter, .bottomLeftQuarter, .maximize:
             return .leftHalf
         }
     }
     
     /// Determine the target position when pressing "right" based on current snap state
     /// - Parameter current: The current snap position (nil if unsnapped)
-    /// - Returns: The target snap position to transition to
-    func targetPositionForRight(from current: SnapPosition?) -> SnapPosition {
+    /// - Returns: The target snap position, or nil to indicate "unsnap to middle"
+    func targetPositionForRight(from current: SnapPosition?) -> SnapPosition? {
         guard let current = current else {
             // Unsnapped → Right Half
             return .rightHalf
@@ -678,9 +772,45 @@ final class WindowManager {
         case .bottomLeftQuarter:
             return .bottomRightQuarter
             
+        // Left half → middle state first
+        case .leftHalf:
+            return nil
+            
         // Already on right side or other positions → Right Half
-        case .leftHalf, .rightHalf, .topRightQuarter, .bottomRightQuarter, .maximize:
+        case .rightHalf, .topRightQuarter, .bottomRightQuarter, .maximize:
             return .rightHalf
+        }
+    }
+    
+    /// Determine the target position when pressing "down" based on current snap state
+    /// - Parameter current: The current snap position (nil if unsnapped)
+    /// - Returns: The target snap position, or nil to indicate "unsnap to middle"
+    func targetPositionForDown(from current: SnapPosition?) -> SnapPosition? {
+        guard let current = current else {
+            // Unsnapped → Bottom Half
+            return .bottomHalf
+        }
+        
+        switch current {
+        // These positions go to middle state
+        case .maximize, .topHalf, .bottomHalf:
+            return nil
+            
+        // Left side transitions down
+        case .leftHalf:
+            return .bottomLeftQuarter
+        case .topLeftQuarter:
+            return .leftHalf
+        case .bottomLeftQuarter:
+            return .bottomHalf
+            
+        // Right side transitions down
+        case .rightHalf:
+            return .bottomRightQuarter
+        case .topRightQuarter:
+            return .rightHalf
+        case .bottomRightQuarter:
+            return .bottomHalf
         }
     }
 }

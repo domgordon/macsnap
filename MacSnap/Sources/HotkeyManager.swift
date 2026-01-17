@@ -166,7 +166,7 @@ final class HotkeyManager {
             case KeyCode.upArrow:
                 return .smartUp
             case KeyCode.downArrow:
-                return .snap(.bottomHalf)
+                return .smartDown
             case KeyCode.returnKey, KeyCode.enter:
                 return .snap(.maximize)
             default:
@@ -190,17 +190,35 @@ final class HotkeyManager {
             log("Smart up: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
             windowManager.snapFrontmostWindow(to: targetPosition)
             
+        case .smartDown:
+            let currentPosition = windowManager.detectCurrentSnapPosition()
+            if let targetPosition = windowManager.targetPositionForDown(from: currentPosition) {
+                log("Smart down: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+                windowManager.snapFrontmostWindow(to: targetPosition)
+            } else {
+                log("Smart down: \(currentPosition?.displayName ?? "unsnapped") → middle")
+                windowManager.unsnapToMiddle()
+            }
+            
         case .smartLeft:
             let currentPosition = windowManager.detectCurrentSnapPosition()
-            let targetPosition = windowManager.targetPositionForLeft(from: currentPosition)
-            log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
-            windowManager.snapFrontmostWindow(to: targetPosition)
+            if let targetPosition = windowManager.targetPositionForLeft(from: currentPosition) {
+                log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+                windowManager.snapFrontmostWindow(to: targetPosition)
+            } else {
+                log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → middle")
+                windowManager.unsnapToMiddle()
+            }
             
         case .smartRight:
             let currentPosition = windowManager.detectCurrentSnapPosition()
-            let targetPosition = windowManager.targetPositionForRight(from: currentPosition)
-            log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
-            windowManager.snapFrontmostWindow(to: targetPosition)
+            if let targetPosition = windowManager.targetPositionForRight(from: currentPosition) {
+                log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+                windowManager.snapFrontmostWindow(to: targetPosition)
+            } else {
+                log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → middle")
+                windowManager.unsnapToMiddle()
+            }
             
         case .moveToMonitor(let direction):
             log("Moving to \(direction) monitor")
@@ -215,6 +233,7 @@ final class HotkeyManager {
 private enum SnapAction {
     case snap(SnapPosition)
     case smartUp
+    case smartDown
     case smartLeft
     case smartRight
     case moveToMonitor(MonitorDirection)
