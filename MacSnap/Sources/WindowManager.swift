@@ -55,6 +55,9 @@ final class WindowManager {
             return false
         }
         
+        // Cancel any pending assist timer (user is still adjusting)
+        SnapAssistController.shared.cancelPendingAssist()
+        
         let frontPID = frontmostAppPID
         
         guard let window = getFrontmostWindow() else {
@@ -103,6 +106,9 @@ final class WindowManager {
     /// - Returns: true if successful
     @discardableResult
     func moveFrontmostWindow(to direction: MonitorDirection) -> Bool {
+        // Cancel any pending assist timer (changing monitors)
+        SnapAssistController.shared.cancelPendingAssist()
+        
         guard let window = getFrontmostWindow() else {
             print("MacSnap: No frontmost window found")
             return false
@@ -130,6 +136,9 @@ final class WindowManager {
     /// - Returns: true if successful
     @discardableResult
     func unsnapToMiddle() -> Bool {
+        // Cancel any pending assist timer (leaving snapped state)
+        SnapAssistController.shared.cancelPendingAssist()
+        
         guard let window = getFrontmostWindow() else {
             debugLog("WindowManager: No frontmost window found")
             return false
