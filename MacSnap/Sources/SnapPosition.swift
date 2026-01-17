@@ -104,6 +104,18 @@ enum SnapPosition: CaseIterable {
         default: return nil
         }
     }
+    
+    /// The two quarters contained within this half position
+    /// Returns nil for quarters/maximize (only halves contain quarters)
+    var quarters: (SnapPosition, SnapPosition)? {
+        switch self {
+        case .leftHalf: return (.topLeftQuarter, .bottomLeftQuarter)
+        case .rightHalf: return (.topRightQuarter, .bottomRightQuarter)
+        case .topHalf: return (.topLeftQuarter, .topRightQuarter)
+        case .bottomHalf: return (.bottomLeftQuarter, .bottomRightQuarter)
+        default: return nil
+        }
+    }
 }
 
 /// Direction for moving windows between monitors

@@ -77,10 +77,59 @@ final class SnapAssistController {
     
     // MARK: - Private
     
+    /// Determine the target position for the picker based on what's already snapped
+    /// - Parameters:
+    ///   - oppositeHalf: The opposite half position to check
+    ///   - screen: The screen to check on
+    ///   - excludePID: Process ID to exclude (the just-snapped window)
+    /// - Returns: The position to show picker for, or nil to skip picker entirely
+    private func determinePickerTarget(
+        for oppositeHalf: SnapPosition,
+        on screen: NSScreen,
+        excludingPID excludePID: pid_t?
+    ) -> SnapPosition? {
+        // If opposite half is cleanly snapped, skip picker
+        if windowManager.isPositionOccupied(oppositeHalf, on: screen, excludingPID: excludePID) {
+            debugLog("SnapAssist: Opposite half \(oppositeHalf) is cleanly snapped, skipping")
+            return nil
+        }
+        
+        // Check quarters within the opposite half
+        guard let (quarter1, quarter2) = oppositeHalf.quarters else {
+            // No quarters (shouldn't happen for halves, but be safe)
+            return oppositeHalf
+        }
+        
+        let quarter1Occupied = windowManager.isPositionOccupied(quarter1, on: screen, excludingPID: excludePID)
+        let quarter2Occupied = windowManager.isPositionOccupied(quarter2, on: screen, excludingPID: excludePID)
+        
+        if quarter1Occupied && quarter2Occupied {
+            // Both quarters occupied, skip picker
+            debugLog("SnapAssist: Both quarters \(quarter1) and \(quarter2) are occupied, skipping")
+            return nil
+        } else if quarter1Occupied {
+            // Quarter 1 occupied, show picker for quarter 2
+            debugLog("SnapAssist: \(quarter1) occupied, targeting \(quarter2)")
+            return quarter2
+        } else if quarter2Occupied {
+            // Quarter 2 occupied, show picker for quarter 1
+            debugLog("SnapAssist: \(quarter2) occupied, targeting \(quarter1)")
+            return quarter1
+        } else {
+            // Neither quarter occupied, show picker for full opposite half
+            debugLog("SnapAssist: No quarters occupied, targeting full \(oppositeHalf)")
+            return oppositeHalf
+        }
+    }
+    
     private func showAssistIfNeeded(oppositePosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Check if opposite half is already occupied
-        if windowManager.isPositionOccupied(oppositePosition, on: screen, excludingPID: excludePID) {
-            debugLog("SnapAssist: Opposite position \(oppositePosition) is already occupied, skipping")
+        // Determine target position (may be half or quarter)
+        guard let targetPosition = determinePickerTarget(
+            for: oppositePosition,
+            on: screen,
+            excludingPID: excludePID
+        ) else {
+            debugLog("SnapAssist: No picker target available, skipping")
             return
         }
         
@@ -92,13 +141,13 @@ final class SnapAssistController {
             return
         }
         
-        debugLog("SnapAssist: Showing picker with \(otherWindows.count) windows for position \(oppositePosition)")
+        debugLog("SnapAssist: Showing picker with \(otherWindows.count) windows for position \(targetPosition)")
         
-        // Calculate frame for the picker (opposite half of screen)
-        let pickerFrame = oppositePosition.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+        // Calculate frame for the picker (target position area)
+        let pickerFrame = targetPosition.frame(in: screen.visibleFrame, fullFrame: screen.frame)
         
         // Show the picker (enters modal lock state)
-        show(windows: otherWindows, targetPosition: oppositePosition, frame: pickerFrame)
+        show(windows: otherWindows, targetPosition: targetPosition, frame: pickerFrame)
     }
     
     private func show(windows: [WindowInfo], targetPosition: SnapPosition, frame: CGRect) {
