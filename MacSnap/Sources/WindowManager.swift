@@ -551,4 +551,136 @@ final class WindowManager {
         let result = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
         return result == .success
     }
+    
+    // MARK: - Snap State Detection
+    
+    /// Detect the current snap position of the frontmost window
+    /// - Returns: The matching SnapPosition if the window is snapped, nil if unsnapped
+    func detectCurrentSnapPosition() -> SnapPosition? {
+        guard let window = getFrontmostWindow(),
+              let windowFrame = getWindowFrame(window) else {
+            return nil
+        }
+        
+        let screen = screenManager.screen(for: windowFrame)
+        let visibleFrame = screen.visibleFrame
+        let fullFrame = screen.frame
+        
+        let positionTolerance: CGFloat = 10.0
+        let sizeTolerance: CGFloat = 20.0
+        
+        // Check each snap position for a match
+        for position in SnapPosition.allCases {
+            let targetFrame = position.frame(in: visibleFrame, fullFrame: fullFrame)
+            
+            let matchesX = abs(windowFrame.origin.x - targetFrame.origin.x) < positionTolerance
+            let matchesY = abs(windowFrame.origin.y - targetFrame.origin.y) < positionTolerance
+            let matchesWidth = abs(windowFrame.width - targetFrame.width) < sizeTolerance
+            let matchesHeight = abs(windowFrame.height - targetFrame.height) < sizeTolerance
+            
+            if matchesX && matchesY && matchesWidth && matchesHeight {
+                debugLog("WindowManager: Detected current snap position: \(position)")
+                return position
+            }
+        }
+        
+        debugLog("WindowManager: Window is unsnapped (no matching position)")
+        return nil
+    }
+    
+    /// Determine the target position when pressing "up" based on current snap state
+    /// - Parameter current: The current snap position (nil if unsnapped)
+    /// - Returns: The target snap position to transition to
+    func targetPositionForUp(from current: SnapPosition?) -> SnapPosition {
+        guard let current = current else {
+            // Unsnapped → Fullscreen
+            return .maximize
+        }
+        
+        switch current {
+        // Left side transitions
+        case .leftHalf:
+            return .topLeftQuarter
+        case .topLeftQuarter:
+            return .maximize
+        case .bottomLeftQuarter:
+            return .leftHalf
+            
+        // Right side transitions
+        case .rightHalf:
+            return .topRightQuarter
+        case .topRightQuarter:
+            return .maximize
+        case .bottomRightQuarter:
+            return .rightHalf
+            
+        // Fullscreen → Top Half
+        case .maximize:
+            return .topHalf
+            
+        // Already at top half → stay at top half
+        case .topHalf:
+            return .topHalf
+            
+        // Bottom half → fullscreen
+        case .bottomHalf:
+            return .maximize
+        }
+    }
+    
+    /// Determine the target position when pressing "left" based on current snap state
+    /// - Parameter current: The current snap position (nil if unsnapped)
+    /// - Returns: The target snap position to transition to
+    func targetPositionForLeft(from current: SnapPosition?) -> SnapPosition {
+        guard let current = current else {
+            // Unsnapped → Left Half
+            return .leftHalf
+        }
+        
+        switch current {
+        // Horizontal halves → quarters
+        case .topHalf:
+            return .topLeftQuarter
+        case .bottomHalf:
+            return .bottomLeftQuarter
+            
+        // Right quarters → Left quarters (horizontal movement)
+        case .topRightQuarter:
+            return .topLeftQuarter
+        case .bottomRightQuarter:
+            return .bottomLeftQuarter
+            
+        // Already on left side or other positions → Left Half
+        case .leftHalf, .rightHalf, .topLeftQuarter, .bottomLeftQuarter, .maximize:
+            return .leftHalf
+        }
+    }
+    
+    /// Determine the target position when pressing "right" based on current snap state
+    /// - Parameter current: The current snap position (nil if unsnapped)
+    /// - Returns: The target snap position to transition to
+    func targetPositionForRight(from current: SnapPosition?) -> SnapPosition {
+        guard let current = current else {
+            // Unsnapped → Right Half
+            return .rightHalf
+        }
+        
+        switch current {
+        // Horizontal halves → quarters
+        case .topHalf:
+            return .topRightQuarter
+        case .bottomHalf:
+            return .bottomRightQuarter
+            
+        // Left quarters → Right quarters (horizontal movement)
+        case .topLeftQuarter:
+            return .topRightQuarter
+        case .bottomLeftQuarter:
+            return .bottomRightQuarter
+            
+        // Already on right side or other positions → Right Half
+        case .leftHalf, .rightHalf, .topRightQuarter, .bottomRightQuarter, .maximize:
+            return .rightHalf
+        }
+    }
 }

@@ -160,11 +160,11 @@ final class HotkeyManager {
         if !hasCommand && !hasShift {
             switch keyCode {
             case KeyCode.leftArrow:
-                return .snap(.leftHalf)
+                return .smartLeft
             case KeyCode.rightArrow:
-                return .snap(.rightHalf)
+                return .smartRight
             case KeyCode.upArrow:
-                return .snap(.topHalf)
+                return .smartUp
             case KeyCode.downArrow:
                 return .snap(.bottomHalf)
             case KeyCode.returnKey, KeyCode.enter:
@@ -184,6 +184,24 @@ final class HotkeyManager {
             log("Snapping to \(position.displayName)")
             windowManager.snapFrontmostWindow(to: position)
             
+        case .smartUp:
+            let currentPosition = windowManager.detectCurrentSnapPosition()
+            let targetPosition = windowManager.targetPositionForUp(from: currentPosition)
+            log("Smart up: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+            windowManager.snapFrontmostWindow(to: targetPosition)
+            
+        case .smartLeft:
+            let currentPosition = windowManager.detectCurrentSnapPosition()
+            let targetPosition = windowManager.targetPositionForLeft(from: currentPosition)
+            log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+            windowManager.snapFrontmostWindow(to: targetPosition)
+            
+        case .smartRight:
+            let currentPosition = windowManager.detectCurrentSnapPosition()
+            let targetPosition = windowManager.targetPositionForRight(from: currentPosition)
+            log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+            windowManager.snapFrontmostWindow(to: targetPosition)
+            
         case .moveToMonitor(let direction):
             log("Moving to \(direction) monitor")
             windowManager.moveFrontmostWindow(to: direction)
@@ -196,6 +214,9 @@ final class HotkeyManager {
 /// Actions that can be triggered by hotkeys
 private enum SnapAction {
     case snap(SnapPosition)
+    case smartUp
+    case smartLeft
+    case smartRight
     case moveToMonitor(MonitorDirection)
 }
 
