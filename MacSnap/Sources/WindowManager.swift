@@ -90,7 +90,7 @@ final class WindowManager {
         animateWindowFrame(window, from: windowFrame, to: targetFrame)
         
         // Schedule snap assist for half-screen snaps (cancellable delay)
-        if position == .leftHalf || position == .rightHalf {
+        if position.oppositeHalf != nil {
             SnapAssistController.shared.scheduleAssist(
                 for: position,
                 on: screen,
@@ -278,15 +278,15 @@ final class WindowManager {
         return windows
     }
     
-    /// Check if a screen half is already occupied by a VISIBLE snapped window
-    /// Only returns true if the window is snapped AND is one of the top 2 windows (not buried)
+    /// Check if a screen half has a "clean snap" - a window properly snapped with nothing overlapping it
+    /// Returns true only if the topmost window in the zone is cleanly snapped to the position
     /// - Parameters:
-    ///   - position: The snap position to check (leftHalf or rightHalf)
+    ///   - position: The snap position to check (any half position)
     ///   - screen: The screen to check on
-    ///   - excludePID: Process ID to exclude from the check
-    /// - Returns: true if the position is visibly occupied by a properly snapped window
+    ///   - excludePID: Process ID to exclude from the check (the just-snapped window)
+    /// - Returns: true if there's a clean snap (skip picker), false otherwise (show picker)
     func isPositionOccupied(_ position: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) -> Bool {
-        let targetFrame = position.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+        let zoneFrame = position.frame(in: screen.visibleFrame, fullFrame: screen.frame)
         let positionTolerance: CGFloat = 5.0
         let sizeTolerance: CGFloat = 20.0
         
@@ -296,9 +296,10 @@ final class WindowManager {
             return false
         }
         
-        // Only check the top few windows - if a snapped window is buried, it doesn't count
-        var checkedCount = 0
-        let maxToCheck = 3  // Only look at top 3 windows
+        // Find the first (topmost) window that overlaps the zone
+        // If it's cleanly snapped -> return true (skip picker)
+        // If it's not snapped (just overlapping) -> return false (show picker)
+        // If no windows overlap the zone -> return false (show picker)
         
         for windowInfo in windowList {
             guard let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
@@ -316,41 +317,35 @@ final class WindowManager {
             let width = boundsDict["Width"] ?? 0
             let height = boundsDict["Height"] ?? 0
             
-            // Skip small windows
+            // Skip small windows (tooltips, etc.)
             if width < 200 || height < 200 { continue }
-            
-            checkedCount += 1
-            if checkedCount > maxToCheck {
-                // Window is too far back in z-order, don't count it as "occupied"
-                break
-            }
             
             let cgX = boundsDict["X"] ?? 0
             let cgY = boundsDict["Y"] ?? 0
             let cgFrame = CGRect(x: cgX, y: cgY, width: width, height: height)
             let nsFrame = convertAXFrameToNSScreen(cgFrame)
             
-            let matchesX = abs(nsFrame.origin.x - targetFrame.origin.x) < positionTolerance
-            let matchesY = abs(nsFrame.origin.y - targetFrame.origin.y) < positionTolerance
-            let matchesWidth = abs(nsFrame.width - targetFrame.width) < sizeTolerance
-            let matchesHeight = abs(nsFrame.height - targetFrame.height) < sizeTolerance
+            // Check if this window overlaps the zone at all
+            if !nsFrame.intersects(zoneFrame) { continue }
+            
+            // This is the topmost window in the zone - check if it's cleanly snapped
+            let matchesX = abs(nsFrame.origin.x - zoneFrame.origin.x) < positionTolerance
+            let matchesY = abs(nsFrame.origin.y - zoneFrame.origin.y) < positionTolerance
+            let matchesWidth = abs(nsFrame.width - zoneFrame.width) < sizeTolerance
+            let matchesHeight = abs(nsFrame.height - zoneFrame.height) < sizeTolerance
             
             if matchesX && matchesY && matchesWidth && matchesHeight {
-                debugLog("WindowManager: Position \(position) is visibly occupied by \(ownerName)")
+                debugLog("WindowManager: Position \(position) has clean snap by \(ownerName)")
                 return true
+            } else {
+                debugLog("WindowManager: Position \(position) zone overlapped by non-snapped window \(ownerName)")
+                return false
             }
         }
         
+        // No windows overlap the zone
+        debugLog("WindowManager: Position \(position) zone is empty")
         return false
-    }
-    
-    /// Get the opposite half position
-    func oppositeHalf(of position: SnapPosition) -> SnapPosition? {
-        switch position {
-        case .leftHalf: return .rightHalf
-        case .rightHalf: return .leftHalf
-        default: return nil
-        }
     }
     
     /// Snap a specific window (by window ID) to a position

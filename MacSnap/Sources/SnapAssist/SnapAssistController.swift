@@ -39,8 +39,8 @@ final class SnapAssistController {
             dismiss()
         }
         
-        // Only schedule for left/right half snaps
-        guard let oppositePosition = windowManager.oppositeHalf(of: snappedPosition) else {
+        // Only schedule for half snaps (left/right/top/bottom)
+        guard let oppositePosition = snappedPosition.oppositeHalf else {
             debugLog("SnapAssist: Position \(snappedPosition) doesn't have an opposite half")
             return
         }

@@ -92,6 +92,18 @@ enum SnapPosition: CaseIterable {
         case .maximize: return "Maximize"
         }
     }
+    
+    /// The opposite half position for snap assist picker
+    /// Returns the complementary half position, or nil for quarters/maximize
+    var oppositeHalf: SnapPosition? {
+        switch self {
+        case .leftHalf: return .rightHalf
+        case .rightHalf: return .leftHalf
+        case .topHalf: return .bottomHalf
+        case .bottomHalf: return .topHalf
+        default: return nil
+        }
+    }
 }
 
 /// Direction for moving windows between monitors
