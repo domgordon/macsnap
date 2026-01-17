@@ -39,21 +39,32 @@ final class SnapAssistController {
             dismiss()
         }
         
-        // Only schedule for half snaps (left/right/top/bottom)
-        guard let oppositePosition = snappedPosition.oppositeHalf else {
-            debugLog("SnapAssist: Position \(snappedPosition) doesn't have an opposite half")
+        // Create cancellable timer based on snap type
+        let workItem: DispatchWorkItem
+        
+        if let oppositePosition = snappedPosition.oppositeHalf {
+            // Half snap: show picker for opposite half (with quarter detection)
+            debugLog("SnapAssist: Scheduling assist for opposite half \(oppositePosition) in \(assistDelay)s")
+            workItem = DispatchWorkItem { [weak self] in
+                self?.showAssistIfNeeded(
+                    oppositePosition: oppositePosition,
+                    on: screen,
+                    excludingPID: excludePID
+                )
+            }
+        } else if let siblingQuarter = snappedPosition.siblingQuarter {
+            // Quarter snap: show picker for sibling quarter if unoccupied
+            debugLog("SnapAssist: Scheduling assist for sibling quarter \(siblingQuarter) in \(assistDelay)s")
+            workItem = DispatchWorkItem { [weak self] in
+                self?.showAssistForSiblingQuarter(
+                    siblingQuarter: siblingQuarter,
+                    on: screen,
+                    excludingPID: excludePID
+                )
+            }
+        } else {
+            debugLog("SnapAssist: Position \(snappedPosition) doesn't trigger picker")
             return
-        }
-        
-        debugLog("SnapAssist: Scheduling assist for \(oppositePosition) in \(assistDelay)s")
-        
-        // Create cancellable timer
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.showAssistIfNeeded(
-                oppositePosition: oppositePosition,
-                on: screen,
-                excludingPID: excludePID
-            )
         }
         
         delayTimer = workItem
@@ -133,6 +144,20 @@ final class SnapAssistController {
             return
         }
         
+        showPickerForPosition(targetPosition, on: screen, excludingPID: excludePID)
+    }
+    
+    private func showAssistForSiblingQuarter(siblingQuarter: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
+        // Only show picker if sibling quarter zone is truly empty (no windows covering it)
+        if !windowManager.isZoneEmpty(siblingQuarter, on: screen, excludingPID: excludePID) {
+            debugLog("SnapAssist: Sibling quarter \(siblingQuarter) zone is covered, skipping")
+            return
+        }
+        
+        showPickerForPosition(siblingQuarter, on: screen, excludingPID: excludePID)
+    }
+    
+    private func showPickerForPosition(_ targetPosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
         // Get other windows (without thumbnails - just app info)
         let otherWindows = windowManager.getOtherWindows(excludingPID: excludePID, on: screen)
         

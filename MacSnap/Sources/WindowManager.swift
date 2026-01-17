@@ -89,8 +89,8 @@ final class WindowManager {
         // Animate the transition for smooth feel
         animateWindowFrame(window, from: windowFrame, to: targetFrame)
         
-        // Schedule snap assist for half-screen snaps (cancellable delay)
-        if position.oppositeHalf != nil {
+        // Schedule snap assist for half-screen snaps or quarter snaps (cancellable delay)
+        if position.oppositeHalf != nil || position.siblingQuarter != nil {
             SnapAssistController.shared.scheduleAssist(
                 for: position,
                 on: screen,
@@ -346,6 +346,56 @@ final class WindowManager {
         // No windows overlap the zone
         debugLog("WindowManager: Position \(position) zone is empty")
         return false
+    }
+    
+    /// Check if a zone is empty (no windows overlapping it at all)
+    /// Used for sibling quarter picker - only show picker if zone is truly empty
+    /// - Parameters:
+    ///   - position: The snap position to check
+    ///   - screen: The screen to check on
+    ///   - excludePID: Process ID to exclude from the check
+    /// - Returns: true if zone is empty (no overlapping windows), false otherwise
+    func isZoneEmpty(_ position: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) -> Bool {
+        let zoneFrame = position.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+        
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return true
+        }
+        
+        for windowInfo in windowList {
+            guard let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let layer = windowInfo[kCGWindowLayer as String] as? Int,
+                  let ownerName = windowInfo[kCGWindowOwnerName as String] as? String else {
+                continue
+            }
+            
+            // Skip excluded app and non-normal windows
+            if let excludePID = excludePID, ownerPID == excludePID { continue }
+            if layer != 0 { continue }
+            if ownerName == "MacSnap" { continue }
+            
+            let width = boundsDict["Width"] ?? 0
+            let height = boundsDict["Height"] ?? 0
+            
+            // Skip small windows
+            if width < 200 || height < 200 { continue }
+            
+            let cgX = boundsDict["X"] ?? 0
+            let cgY = boundsDict["Y"] ?? 0
+            let cgFrame = CGRect(x: cgX, y: cgY, width: width, height: height)
+            let nsFrame = convertAXFrameToNSScreen(cgFrame)
+            
+            // If any window overlaps the zone, it's not empty
+            if nsFrame.intersects(zoneFrame) {
+                debugLog("WindowManager: Zone \(position) is covered by \(ownerName)")
+                return false
+            }
+        }
+        
+        debugLog("WindowManager: Zone \(position) is empty")
+        return true
     }
     
     /// Snap a specific window (by window ID) to a position
