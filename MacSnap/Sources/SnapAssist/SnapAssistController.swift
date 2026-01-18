@@ -148,9 +148,9 @@ final class SnapAssistController {
     }
     
     private func showAssistForSiblingQuarter(siblingQuarter: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Only show picker if sibling quarter zone is truly empty (no windows covering it)
-        if !windowManager.isZoneEmpty(siblingQuarter, on: screen, excludingPID: excludePID) {
-            debugLog("SnapAssist: Sibling quarter \(siblingQuarter) zone is covered, skipping")
+        // Only skip picker if sibling quarter is cleanly snapped (not just overlapped by a half-sized window)
+        if windowManager.isPositionOccupied(siblingQuarter, on: screen, excludingPID: excludePID) {
+            debugLog("SnapAssist: Sibling quarter \(siblingQuarter) is cleanly snapped, skipping")
             return
         }
         

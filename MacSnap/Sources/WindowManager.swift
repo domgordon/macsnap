@@ -136,8 +136,8 @@ final class WindowManager {
     /// - Returns: true if successful
     @discardableResult
     func unsnapToMiddle() -> Bool {
-        // Cancel any pending assist timer (leaving snapped state)
-        SnapAssistController.shared.cancelPendingAssist()
+        // Dismiss any showing picker or cancel pending timer (leaving snapped state)
+        SnapAssistController.shared.dismiss()
         
         guard let window = getFrontmostWindow() else {
             debugLog("WindowManager: No frontmost window found")
