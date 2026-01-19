@@ -355,6 +355,8 @@ final class WindowManager {
                 title = candidate.cgTitle
             }
             
+            debugLog("WindowManager: Window ID \(candidate.windowID) '\(title)' at frame \(candidate.nsFrame)")
+            
             windows.append(WindowInfo(
                 windowID: candidate.windowID,
                 ownerPID: candidate.ownerPID,
@@ -368,14 +370,15 @@ final class WindowManager {
         return windows
     }
     
-    /// Snap a specific window (by window ID) to a position
+    /// Snap a specific window to a position using its stored frame for matching
     /// - Parameters:
-    ///   - windowID: The CGWindowID of the window to snap
+    ///   - windowID: The CGWindowID of the window (for logging only)
     ///   - ownerPID: The process ID that owns the window
+    ///   - storedFrame: The frame of the window when it was captured (in NSScreen coords)
     ///   - position: The target snap position
     /// - Returns: true if successful
     @discardableResult
-    func snapWindow(windowID: CGWindowID, ownerPID: pid_t, to position: SnapPosition) -> Bool {
+    func snapWindow(windowID: CGWindowID, ownerPID: pid_t, storedFrame: CGRect, to position: SnapPosition) -> Bool {
         // Get the app's AX element
         let appElement = AXUIElementCreateApplication(ownerPID)
         
@@ -388,30 +391,12 @@ final class WindowManager {
             return false
         }
         
-        // Use cached window list to find frame
-        let windowList = WindowListCache.shared.getWindowList()
+        // Convert stored frame to AX coordinates for matching
+        let storedAXFrame = CoordinateConverter.nsToAX(storedFrame)
         
-        // Find the CG window info to get its frame
-        var targetCGFrame: CGRect?
-        for info in windowList {
-            if let wid = WindowListCache.getWindowID(info), wid == windowID,
-               let bounds = info[kCGWindowBounds as String] as? [String: CGFloat] {
-                targetCGFrame = CGRect(
-                    x: bounds["X"] ?? 0,
-                    y: bounds["Y"] ?? 0,
-                    width: bounds["Width"] ?? 0,
-                    height: bounds["Height"] ?? 0
-                )
-                break
-            }
-        }
+        debugLog("WindowManager: Looking for window at stored frame \(storedFrame) (AX: \(storedAXFrame))")
         
-        guard let cgFrame = targetCGFrame else {
-            debugLog("WindowManager: Could not find frame for window \(windowID)")
-            return false
-        }
-        
-        // Find matching AX window using FrameMatcher
+        // Find matching AX window using the STORED frame (not fresh lookup)
         for axWindow in windows {
             guard let axPosition = getWindowPosition(axWindow),
                   let axSize = getWindowSize(axWindow) else {
@@ -420,9 +405,11 @@ final class WindowManager {
             
             let axFrame = CGRect(origin: axPosition, size: axSize)
             
-            // Compare frames using FrameMatcher
-            if FrameMatcher.matchesExact(axFrame, cgFrame) {
-                // Found the window - activate it and snap with animation
+            // Compare current AX frame with stored AX frame
+            if FrameMatcher.matchesExact(axFrame, storedAXFrame) {
+                // Found the window - raise it to front and activate the app
+                AXUIElementPerformAction(axWindow, kAXRaiseAction as CFString)
+                
                 let app = NSRunningApplication(processIdentifier: ownerPID)
                 app?.activate(options: [.activateIgnoringOtherApps])
                 
@@ -433,12 +420,12 @@ final class WindowManager {
                 // Animate the window into place
                 WindowAnimator.shared.animate(window: axWindow, from: startFrame, to: targetFrame)
                 
-                debugLog("WindowManager: Snapping window \(windowID) to \(position)")
+                debugLog("WindowManager: Snapping window \(windowID) from \(startFrame) to \(targetFrame)")
                 return true
             }
         }
         
-        debugLog("WindowManager: Could not find matching AX window for \(windowID)")
+        debugLog("WindowManager: Could not find matching AX window for stored frame \(storedFrame)")
         return false
     }
     

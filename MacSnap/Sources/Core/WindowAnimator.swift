@@ -43,6 +43,8 @@ final class WindowAnimator {
         lock.lock()
         defer { lock.unlock() }
         
+        debugLog("WindowAnimator: Starting animation from \(from) to \(to)")
+        
         // Cancel any existing animation
         currentAnimation?.isComplete = true
         
@@ -181,13 +183,19 @@ final class WindowAnimator {
         // Set size first
         var size = frame.size
         if let sizeValue = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+            let sizeResult = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+            if sizeResult != .success {
+                debugLog("WindowAnimator: Failed to set size, error: \(sizeResult.rawValue)")
+            }
         }
         
         // Set position
         var position = axFrame.origin
         if let positionValue = AXValueCreate(.cgPoint, &position) {
-            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+            let posResult = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+            if posResult != .success {
+                debugLog("WindowAnimator: Failed to set position, error: \(posResult.rawValue)")
+            }
         }
     }
 }

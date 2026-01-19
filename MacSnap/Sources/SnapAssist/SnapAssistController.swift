@@ -11,6 +11,7 @@ final class SnapAssistController {
     
     private var assistWindow: SnapAssistWindow?
     private var delayTimer: DispatchWorkItem?
+    private var scheduledAssistID: UUID?  // Used to detect if timer was cancelled
     private let windowManager = WindowManager.shared
     
     /// Queue of positions waiting to be filled (in priority order: TL, TR, BL, BR)
@@ -66,7 +67,16 @@ final class SnapAssistController {
         
         debugLog("SnapAssist: Scheduling assist after \(snappedPosition) in \(assistDelay)s")
         
+        // Generate unique ID for this schedule - allows detecting cancellation
+        let scheduleID = UUID()
+        self.scheduledAssistID = scheduleID
+        
         let workItem = DispatchWorkItem { [weak self] in
+            // Check if this schedule is still valid (wasn't cancelled or superseded)
+            guard self?.scheduledAssistID == scheduleID else {
+                debugLog("SnapAssist: Timer was cancelled, not showing assist")
+                return
+            }
             self?.showAssistUsingLayout(snappedPosition: snappedPosition, on: screen, excludingWindowID: excludeWindowID)
         }
         
@@ -76,6 +86,7 @@ final class SnapAssistController {
     
     /// Cancel any pending snap assist (user is still adjusting)
     func cancelPendingAssist() {
+        scheduledAssistID = nil  // Invalidate any pending timer callback
         delayTimer?.cancel()
         delayTimer = nil
         debugLog("SnapAssist: Cancelled pending assist")
@@ -212,12 +223,14 @@ final class SnapAssistController {
         }
         
         debugLog("SnapAssist: Selected window '\(windowInfo.title)' for position \(activePosition)")
+        debugLog("SnapAssist: Window stored frame: \(windowInfo.frame)")
         debugLog("SnapAssist: pendingPositions before removal: \(pendingPositions.map { $0.displayName })")
         
-        // Snap the window
+        // Snap the window using its STORED frame for matching (not fresh lookup)
         windowManager.snapWindow(
             windowID: windowInfo.windowID,
             ownerPID: windowInfo.ownerPID,
+            storedFrame: windowInfo.frame,
             to: activePosition
         )
         

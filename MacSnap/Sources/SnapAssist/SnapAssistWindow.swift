@@ -192,9 +192,11 @@ final class SnapAssistWindow: NSWindow {
             let x = CGFloat(col) * (thumbnailWidth + spacing)
             let y = CGFloat(row) * (thumbnailHeight + spacing)
             
+            debugLog("SnapAssistWindow: Creating thumbnail[\(index)] for '\(windowInfo.title)' at \(windowInfo.frame)")
             let thumbnailView = WindowThumbnailView(windowInfo: windowInfo)
             thumbnailView.frame = NSRect(x: x, y: y, width: thumbnailWidth, height: thumbnailHeight)
             thumbnailView.onSelect = { [weak self] info in
+                debugLog("SnapAssistWindow: Thumbnail clicked for '\(info.title)' at \(info.frame)")
                 self?.selectWindow(info)
             }
             
@@ -301,7 +303,9 @@ final class SnapAssistWindow: NSWindow {
             
         case 36, 76:  // Return, Enter
             if selectedIndex < windows.count {
-                selectWindow(windows[selectedIndex])
+                let selected = windows[selectedIndex]
+                debugLog("SnapAssistWindow: Enter pressed, selectedIndex=\(selectedIndex), window='\(selected.title)' at \(selected.frame)")
+                selectWindow(selected)
             }
             
         case 123:  // Left arrow
