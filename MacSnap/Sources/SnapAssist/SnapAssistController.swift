@@ -26,6 +26,9 @@ final class SnapAssistController {
     /// Window ID to exclude from window lists (the window that was just snapped)
     private var excludeWindowID: CGWindowID?
     
+    /// The app that was frontmost before showing the picker (for focus restoration on dismiss)
+    private var previousApp: NSRunningApplication?
+    
     /// Whether the snap assist overlay is currently showing (modal lock state)
     var isShowingAssist: Bool {
         assistWindow != nil
@@ -102,10 +105,18 @@ final class SnapAssistController {
         assistWindow?.close()
         assistWindow = nil
         
+        // Restore focus to the previously active app (if we still have a reference)
+        // previousApp is cleared when a window is selected, so this only triggers on Escape/click-outside
+        if let app = previousApp {
+            debugLog("SnapAssist: Restoring focus to \(app.localizedName ?? "unknown app")")
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
+        
         pendingPositions = []
         activePosition = nil
         currentScreen = nil
         excludeWindowID = nil
+        previousApp = nil
         debugLog("SnapAssist: Dismissed (window closed, state cleared)")
     }
     
@@ -143,14 +154,28 @@ final class SnapAssistController {
         self.currentScreen = screen
         self.excludeWindowID = excludeWindowID
         
+        // Capture frontmost app before picker steals focus (for restoration on dismiss)
+        self.previousApp = NSWorkspace.shared.frontmostApplication
+        
         debugLog("SnapAssist: Showing picker for \(positionsNeedingFill.count) positions: \(positionsNeedingFill)")
         
         // Show the picker
         showPickerWindow(windows: otherWindows, allPositions: positionsNeedingFill, on: screen)
     }
     
-    private func showPickerWindow(windows: [WindowInfo], allPositions: [SnapPosition], on screen: NSScreen) {
+    /// Show the picker window
+    /// - Parameters:
+    ///   - windows: Windows to display in the picker
+    ///   - allPositions: All positions that need filling
+    ///   - screen: The screen to show the picker on
+    ///   - isTransition: If true, temporarily ignores resign events (for multi-zone transitions)
+    private func showPickerWindow(windows: [WindowInfo], allPositions: [SnapPosition], on screen: NSScreen, isTransition: Bool = false) {
         guard let activePosition = allPositions.first else { return }
+        
+        // Re-activate MacSnap if transitioning (snap may have activated another app)
+        if isTransition {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         
         assistWindow = SnapAssistWindow(
             windows: windows,
@@ -158,6 +183,11 @@ final class SnapAssistController {
             activePosition: activePosition,
             screen: screen
         )
+        
+        // Temporarily ignore resign events during transition setup
+        if isTransition {
+            assistWindow?.ignoreResignEvents = true
+        }
         
         assistWindow?.onWindowSelected = { [weak self] windowInfo in
             self?.handleWindowSelected(windowInfo)
@@ -170,46 +200,14 @@ final class SnapAssistController {
         // Show and activate the window
         assistWindow?.makeKeyAndOrderFront(nil)
         
-        // Ensure window captures keyboard focus
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        // Ensure window captures keyboard focus (slightly longer delay for transitions)
+        let focusDelay: TimeInterval = isTransition ? 0.1 : 0.05
+        DispatchQueue.main.asyncAfter(deadline: .now() + focusDelay) { [weak self] in
+            if isTransition {
+                self?.assistWindow?.ignoreResignEvents = false
+                debugLog("SnapAssist: Transition picker ready (resign events re-enabled)")
+            }
             self?.assistWindow?.makeKey()
-        }
-    }
-    
-    /// Show picker window during a transition (after snapping another window)
-    /// This version ignores resign events temporarily since the snap activated another app
-    private func showPickerWindowForTransition(windows: [WindowInfo], allPositions: [SnapPosition], on screen: NSScreen) {
-        guard let activePosition = allPositions.first else { return }
-        
-        // Re-activate MacSnap first (snap may have activated another app)
-        NSApp.activate(ignoringOtherApps: true)
-        
-        assistWindow = SnapAssistWindow(
-            windows: windows,
-            allPositions: allPositions,
-            activePosition: activePosition,
-            screen: screen
-        )
-        
-        // Temporarily ignore resign events during window setup
-        assistWindow?.ignoreResignEvents = true
-        
-        assistWindow?.onWindowSelected = { [weak self] windowInfo in
-            self?.handleWindowSelected(windowInfo)
-        }
-        
-        assistWindow?.onDismiss = { [weak self] in
-            self?.dismiss()
-        }
-        
-        // Show and activate the window
-        assistWindow?.makeKeyAndOrderFront(nil)
-        
-        // After window is established, re-enable resign event handling
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.assistWindow?.ignoreResignEvents = false
-            self?.assistWindow?.makeKey()
-            debugLog("SnapAssist: Transition picker ready (resign events re-enabled)")
         }
     }
     
@@ -218,6 +216,7 @@ final class SnapAssistController {
     private func handleWindowSelected(_ windowInfo: WindowInfo) {
         guard let activePosition = activePosition else {
             debugLog("SnapAssist: No active position for selection")
+            previousApp = nil
             dismiss()
             return
         }
@@ -241,6 +240,10 @@ final class SnapAssistController {
         // Check if more positions need filling
         if let nextPosition = pendingPositions.first,
            let screen = currentScreen {
+            // More positions to fill - set previousApp to the just-selected window's app
+            // so if user escapes from the next picker, focus returns to this window
+            previousApp = NSRunningApplication(processIdentifier: windowInfo.ownerPID)
+            
             // Advance to next position
             self.activePosition = nextPosition
             debugLog("SnapAssist: Advancing to next position: \(nextPosition.displayName)")
@@ -266,12 +269,13 @@ final class SnapAssistController {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     debugLog("SnapAssist: Creating new picker window...")
-                    self.showPickerWindowForTransition(windows: otherWindows, allPositions: self.pendingPositions, on: screen)
+                    self.showPickerWindow(windows: otherWindows, allPositions: self.pendingPositions, on: screen, isTransition: true)
                     debugLog("SnapAssist: New picker window created")
                 }
             }
         } else {
-            // All positions filled
+            // All positions filled - clear previousApp so we don't override the final selected window
+            previousApp = nil
             debugLog("SnapAssist: All positions filled (pendingPositions empty), dismissing")
             dismiss()
         }
