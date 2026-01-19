@@ -269,7 +269,7 @@ final class WindowManager {
         
         var candidates: [WindowCandidate] = []
         
-        for windowInfo in windowList {
+        for (currentIndex, windowInfo) in windowList.enumerated() {
             // Validate window (no PID exclusion - we filter by window ID instead)
             guard WindowListCache.isValidWindow(windowInfo, excludePID: nil, minSize: 100) else {
                 continue
@@ -302,10 +302,25 @@ final class WindowManager {
                 continue
             }
             
-            // Skip windows that are already clean-snapped to a position
+            // Skip windows that are clean-snapped AND not overlapped by higher z-order windows
+            // A window is only truly "clean snapped" if it matches a snap position and is visible (not covered)
             if FrameMatcher.detectSnapPosition(for: nsFrame, on: screen) != nil {
-                debugLog("WindowManager: Skipping clean-snapped window '\(ownerName)' at \(nsFrame)")
-                continue
+                // Check if any higher z-order window (earlier in the list) overlaps this one
+                let isOverlapped = windowList[0..<currentIndex].contains { higherWindowInfo in
+                    guard WindowListCache.isValidWindow(higherWindowInfo, excludePID: nil, minSize: 100),
+                          let higherFrame = WindowListCache.getFrame(higherWindowInfo) else {
+                        return false
+                    }
+                    return higherFrame.intersects(nsFrame)
+                }
+                
+                if !isOverlapped {
+                    // Truly clean-snapped (matches position and not covered), skip it
+                    debugLog("WindowManager: Skipping clean-snapped window '\(ownerName)' at \(nsFrame)")
+                    continue
+                }
+                // Otherwise, it's covered by another window, so include it in picker
+                debugLog("WindowManager: Including overlapped snap-positioned window '\(ownerName)'")
             }
             
             let cgTitle = WindowListCache.getTitle(windowInfo) ?? ownerName
