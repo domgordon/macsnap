@@ -179,6 +179,12 @@ final class HotkeyManager {
     
     /// Perform the determined snap action
     private func performAction(_ action: SnapAction) {
+        // Dismiss any showing picker first - this restores focus to the previous app
+        // so subsequent window operations work on the correct window
+        if SnapAssistController.shared.isShowingAssist {
+            SnapAssistController.shared.dismiss()
+        }
+        
         switch action {
         case .snap(let position):
             log("Snapping to \(position.displayName)")
