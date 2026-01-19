@@ -17,6 +17,9 @@ final class SnapAssistWindow: NSWindow {
     var onWindowSelected: ((WindowInfo) -> Void)?
     var onDismiss: (() -> Void)?
     
+    /// When true, ignore resignKey and appDidResignActive (during picker transitions)
+    var ignoreResignEvents: Bool = false
+    
     // MARK: - Initialization
     
     init(windows: [WindowInfo], allPositions: [SnapPosition], activePosition: SnapPosition, screen: NSScreen) {
@@ -68,11 +71,15 @@ final class SnapAssistWindow: NSWindow {
     }
     
     @objc private func appDidResignActive() {
+        debugLog("SnapAssistWindow: appDidResignActive triggered (ignoreResignEvents=\(ignoreResignEvents))")
+        guard !ignoreResignEvents else { return }
         dismissPicker()
     }
     
     override func resignKey() {
+        debugLog("SnapAssistWindow: resignKey triggered (ignoreResignEvents=\(ignoreResignEvents))")
         super.resignKey()
+        guard !ignoreResignEvents else { return }
         dismissPicker()
     }
     
@@ -244,10 +251,18 @@ final class SnapAssistWindow: NSWindow {
     private func selectWindow(_ windowInfo: WindowInfo) {
         // Clear dismiss handler before animation to prevent resignKey from triggering dismiss
         // during the transition to the next picker
+        debugLog("SnapAssistWindow: selectWindow called, clearing onDismiss")
         onDismiss = nil
+        
+        // Capture callback before animation (in case it gets cleared)
+        let callback = onWindowSelected
+        onWindowSelected = nil  // Prevent double-calls
+        
         animateOut { [weak self] in
-            self?.onWindowSelected?(windowInfo)
-            self?.close()
+            debugLog("SnapAssistWindow: animateOut complete, calling callback")
+            // Call the callback - controller handles window lifecycle (including closing)
+            callback?(windowInfo)
+            // Don't call close() here - controller will close this window during transition
         }
     }
     
