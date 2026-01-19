@@ -128,6 +128,22 @@ enum SnapPosition: CaseIterable {
         default: return nil
         }
     }
+    
+    /// Whether this position is a half (left, right, top, or bottom)
+    var isHalf: Bool {
+        switch self {
+        case .leftHalf, .rightHalf, .topHalf, .bottomHalf: return true
+        default: return false
+        }
+    }
+    
+    /// Whether this position is a quarter
+    var isQuarter: Bool {
+        switch self {
+        case .topLeftQuarter, .topRightQuarter, .bottomLeftQuarter, .bottomRightQuarter: return true
+        default: return false
+        }
+    }
 }
 
 /// Direction for moving windows between monitors

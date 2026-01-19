@@ -21,6 +21,7 @@
 		A1000012 /* SnapAssistController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* SnapAssistController.swift */; };
 		A1000013 /* SnapAssistWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015 /* SnapAssistWindow.swift */; };
 		A1000014 /* WindowThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000016 /* WindowThumbnailView.swift */; };
+		A1000015 /* ScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000017 /* ScreenLayout.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		A2000014 /* SnapAssistController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAssistController.swift; sourceTree = "<group>"; };
 		A2000015 /* SnapAssistWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAssistWindow.swift; sourceTree = "<group>"; };
 		A2000016 /* WindowThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowThumbnailView.swift; sourceTree = "<group>"; };
+		A2000017 /* ScreenLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLayout.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -91,6 +93,7 @@
 				A2000005 /* WindowManager.swift */,
 				A2000006 /* ScreenManager.swift */,
 				A2000007 /* SnapPosition.swift */,
+				A2000017 /* ScreenLayout.swift */,
 				A2000011 /* OnboardingManager.swift */,
 				A2000012 /* OnboardingView.swift */,
 				A2000013 /* OnboardingWindowController.swift */,
@@ -180,6 +183,7 @@
 				A1000012 /* SnapAssistController.swift in Sources */,
 				A1000013 /* SnapAssistWindow.swift in Sources */,
 				A1000014 /* WindowThumbnailView.swift in Sources */,
+				A1000015 /* ScreenLayout.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

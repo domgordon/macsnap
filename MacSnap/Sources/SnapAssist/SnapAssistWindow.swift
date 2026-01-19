@@ -1,64 +1,40 @@
 import AppKit
 
 /// A borderless window that displays window options for snap assist
-/// Covers the "empty" half of the screen after snapping
+/// Supports multi-zone display with active/waiting states
 final class SnapAssistWindow: NSWindow {
     
     // MARK: - Properties
     
     private let windows: [WindowInfo]
-    private let targetPosition: SnapPosition
+    private let allPositions: [SnapPosition]
+    private let activePosition: SnapPosition
+    private let targetScreen: NSScreen
     private var thumbnailViews: [WindowThumbnailView] = []
     private var selectedIndex: Int = 0
+    private var zoneViews: [NSView] = []
     
     var onWindowSelected: ((WindowInfo) -> Void)?
     var onDismiss: (() -> Void)?
     
-    // MARK: - UI Components
-    
-    private let blurView: NSVisualEffectView = {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        view.layer?.cornerRadius = 16
-        view.layer?.masksToBounds = true
-        return view
-    }()
-    
-    private let scrollView: NSScrollView = {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = false
-        scroll.autohidesScrollers = true
-        scroll.drawsBackground = false
-        scroll.scrollerStyle = .overlay
-        return scroll
-    }()
-    
-    private let containerView: FlippedView = {
-        let view = FlippedView()
-        view.wantsLayer = true
-        return view
-    }()
-    
     // MARK: - Initialization
     
-    init(windows: [WindowInfo], targetPosition: SnapPosition, frame: NSRect) {
+    init(windows: [WindowInfo], allPositions: [SnapPosition], activePosition: SnapPosition, screen: NSScreen) {
         self.windows = windows
-        self.targetPosition = targetPosition
+        self.allPositions = allPositions
+        self.activePosition = activePosition
+        self.targetScreen = screen
         
+        // Window covers the entire screen
         super.init(
-            contentRect: frame,
+            contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
         
         configureWindow()
-        setupUI()
-        createThumbnails()
+        setupZones()
         updateSelection()
         
         // Animate in
@@ -74,7 +50,7 @@ final class SnapAssistWindow: NSWindow {
         isOpaque = false
         backgroundColor = .clear
         level = .floating
-        hasShadow = true
+        hasShadow = false
         isReleasedWhenClosed = false
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
@@ -92,45 +68,99 @@ final class SnapAssistWindow: NSWindow {
     }
     
     @objc private func appDidResignActive() {
-        // User clicked on another app
-        dismiss()
+        dismissPicker()
     }
     
     override func resignKey() {
         super.resignKey()
-        // User clicked elsewhere or another window became key
-        dismiss()
+        dismissPicker()
     }
     
-    private func setupUI() {
+    // MARK: - Zone Setup
+    
+    private func setupZones() {
         guard let contentView = contentView else { return }
-        
         contentView.wantsLayer = true
         
-        // Blur background
-        contentView.addSubview(blurView)
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Scroll view for thumbnails
-        blurView.addSubview(scrollView)
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.documentView = containerView
-        
-        NSLayoutConstraint.activate([
-            blurView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            blurView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            blurView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            blurView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+        // Create overlay zones for all positions
+        for position in allPositions {
+            let zoneFrame = position.frame(in: targetScreen.visibleFrame, fullFrame: targetScreen.frame)
+            // Convert to window coordinates (window covers full screen)
+            let localFrame = convertScreenToWindow(zoneFrame)
             
-            scrollView.topAnchor.constraint(equalTo: blurView.topAnchor, constant: 20),
-            scrollView.leadingAnchor.constraint(equalTo: blurView.leadingAnchor, constant: 20),
-            scrollView.trailingAnchor.constraint(equalTo: blurView.trailingAnchor, constant: -20),
-            scrollView.bottomAnchor.constraint(equalTo: blurView.bottomAnchor, constant: -20),
-        ])
+            let isActive = (position == activePosition)
+            let zoneView = createZoneView(frame: localFrame, isActive: isActive)
+            contentView.addSubview(zoneView)
+            zoneViews.append(zoneView)
+            
+            // Add thumbnails only to active zone
+            if isActive {
+                setupThumbnails(in: zoneView, frame: localFrame)
+            }
+        }
     }
     
-    private func createThumbnails() {
-        let availableWidth = frame.width - 80
+    private func createZoneView(frame: NSRect, isActive: Bool) -> NSView {
+        let containerView = NSView(frame: frame)
+        containerView.wantsLayer = true
+        
+        // Inset padding for visual breathing room between zones
+        let zonePadding: CGFloat = 10
+        let insetBounds = containerView.bounds.insetBy(dx: zonePadding, dy: zonePadding)
+        
+        // Blur background with native macOS styling
+        let blurView = NSVisualEffectView(frame: insetBounds)
+        blurView.material = .hudWindow
+        blurView.blendingMode = .behindWindow
+        blurView.state = .active
+        blurView.wantsLayer = true
+        blurView.layer?.cornerRadius = 14
+        blurView.layer?.masksToBounds = true
+        
+        // Subtle inner border for definition (native macOS panel style)
+        blurView.layer?.borderWidth = 0.5
+        blurView.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        
+        // Soft shadow for depth
+        containerView.layer?.shadowColor = NSColor.black.cgColor
+        containerView.layer?.shadowOpacity = 0.25
+        containerView.layer?.shadowRadius = 20
+        containerView.layer?.shadowOffset = CGSize(width: 0, height: -4)
+        
+        containerView.addSubview(blurView)
+        
+        return containerView
+    }
+    
+    private func setupThumbnails(in zoneView: NSView, frame: NSRect) {
+        // Create scroll view for thumbnails
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.scrollerStyle = .overlay
+        
+        let containerView = FlippedView()
+        containerView.wantsLayer = true
+        scrollView.documentView = containerView
+        
+        // Content padding within the blur area (zone padding + inner content margin)
+        let zonePadding: CGFloat = 10  // Must match createZoneView
+        let contentMargin: CGFloat = 32  // Inner margin within blur
+        let totalPadding = zonePadding + contentMargin
+        
+        scrollView.frame = NSRect(
+            x: totalPadding,
+            y: totalPadding,
+            width: zoneView.bounds.width - (totalPadding * 2),
+            height: zoneView.bounds.height - (totalPadding * 2)
+        )
+        scrollView.autoresizingMask = [.width, .height]
+        zoneView.addSubview(scrollView)
+        
+        // Create thumbnails
+        let availableWidth = scrollView.frame.width - 40
         let thumbnailWidth = WindowThumbnailView.totalSize.width
         let thumbnailHeight = WindowThumbnailView.totalSize.height
         let spacing: CGFloat = 12
@@ -161,11 +191,22 @@ final class SnapAssistWindow: NSWindow {
         }
     }
     
+    private func convertScreenToWindow(_ screenRect: NSRect) -> NSRect {
+        // Convert screen coordinates to window coordinates
+        // Window frame is at screen origin, so just offset by window origin
+        return NSRect(
+            x: screenRect.origin.x - frame.origin.x,
+            y: screenRect.origin.y - frame.origin.y,
+            width: screenRect.width,
+            height: screenRect.height
+        )
+    }
+    
     // MARK: - Animation
     
     private func animateIn() {
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.08  // Snappy appearance
+            context.duration = 0.08
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             self.animator().alphaValue = 1.0
         }) {
@@ -192,20 +233,25 @@ final class SnapAssistWindow: NSWindow {
         }
         
         if selectedIndex < thumbnailViews.count {
-            let selectedView = thumbnailViews[selectedIndex]
-            scrollView.contentView.scrollToVisible(selectedView.frame)
+            // Find the scroll view and scroll to selected
+            if let scrollView = thumbnailViews.first?.superview?.superview as? NSScrollView {
+                let selectedView = thumbnailViews[selectedIndex]
+                scrollView.contentView.scrollToVisible(selectedView.frame)
+            }
         }
     }
     
     private func selectWindow(_ windowInfo: WindowInfo) {
-        // Animate out, then trigger action
+        // Clear dismiss handler before animation to prevent resignKey from triggering dismiss
+        // during the transition to the next picker
+        onDismiss = nil
         animateOut { [weak self] in
             self?.onWindowSelected?(windowInfo)
             self?.close()
         }
     }
     
-    func dismiss() {
+    func dismissPicker() {
         animateOut { [weak self] in
             self?.onDismiss?()
             self?.close()
@@ -220,19 +266,18 @@ final class SnapAssistWindow: NSWindow {
     
     override func becomeKey() {
         super.becomeKey()
-        // Ensure we're the first responder for keyboard events
         makeFirstResponder(self)
     }
     
     override func keyDown(with event: NSEvent) {
         guard !windows.isEmpty else {
-            dismiss()
+            dismissPicker()
             return
         }
         
         switch event.keyCode {
         case 53:  // Escape
-            dismiss()
+            dismissPicker()
             
         case 36, 76:  // Return, Enter
             if selectedIndex < windows.count {
@@ -267,8 +312,11 @@ final class SnapAssistWindow: NSWindow {
     
     private func moveSelectionVertical(by rowDelta: Int) {
         guard !windows.isEmpty else { return }
+        guard let firstZone = zoneViews.first else { return }
         
-        let availableWidth = frame.width - 80
+        // Must match setupThumbnails padding calculation
+        let totalPadding: CGFloat = (10 + 32) * 2  // zonePadding + contentMargin, both sides
+        let availableWidth = firstZone.bounds.width - totalPadding
         let thumbnailWidth = WindowThumbnailView.totalSize.width
         let spacing: CGFloat = 12
         let columns = max(1, Int((availableWidth + spacing) / (thumbnailWidth + spacing)))
@@ -284,10 +332,19 @@ final class SnapAssistWindow: NSWindow {
     
     override func mouseDown(with event: NSEvent) {
         let locationInWindow = event.locationInWindow
-        let locationInBlur = blurView.convert(locationInWindow, from: nil)
         
-        if !blurView.bounds.contains(locationInBlur) {
-            dismiss()
+        // Check if click is inside any zone
+        var clickedInsideZone = false
+        for zoneView in zoneViews {
+            let locationInZone = zoneView.convert(locationInWindow, from: nil)
+            if zoneView.bounds.contains(locationInZone) {
+                clickedInsideZone = true
+                break
+            }
+        }
+        
+        if !clickedInsideZone {
+            dismissPicker()
         }
     }
 }

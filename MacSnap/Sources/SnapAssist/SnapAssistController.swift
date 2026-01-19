@@ -2,6 +2,7 @@ import AppKit
 
 /// Orchestrates the Snap Assist feature with Windows-style timing
 /// Uses a cancellable delay timer to allow chained snaps before showing the picker
+/// Supports multi-zone sequential picking for quarter snaps
 final class SnapAssistController {
     
     static let shared = SnapAssistController()
@@ -11,6 +12,18 @@ final class SnapAssistController {
     private var assistWindow: SnapAssistWindow?
     private var delayTimer: DispatchWorkItem?
     private let windowManager = WindowManager.shared
+    
+    /// Queue of positions waiting to be filled (in priority order: TL, TR, BL, BR)
+    private var pendingPositions: [SnapPosition] = []
+    
+    /// The currently active position (showing app tiles)
+    private var activePosition: SnapPosition?
+    
+    /// The screen we're showing pickers on
+    private var currentScreen: NSScreen?
+    
+    /// PID to exclude from window lists
+    private var excludePID: pid_t?
     
     /// Whether the snap assist overlay is currently showing (modal lock state)
     var isShowingAssist: Bool {
@@ -39,32 +52,22 @@ final class SnapAssistController {
             dismiss()
         }
         
-        // Create cancellable timer based on snap type
-        let workItem: DispatchWorkItem
+        // Full screen / maximize doesn't trigger picker
+        if snappedPosition == .maximize {
+            debugLog("SnapAssist: Full screen snap, no picker needed")
+            return
+        }
         
-        if let oppositePosition = snappedPosition.oppositeHalf {
-            // Half snap: show picker for opposite half (with quarter detection)
-            debugLog("SnapAssist: Scheduling assist for opposite half \(oppositePosition) in \(assistDelay)s")
-            workItem = DispatchWorkItem { [weak self] in
-                self?.showAssistIfNeeded(
-                    oppositePosition: oppositePosition,
-                    on: screen,
-                    excludingPID: excludePID
-                )
-            }
-        } else if let siblingQuarter = snappedPosition.siblingQuarter {
-            // Quarter snap: show picker for sibling quarter if unoccupied
-            debugLog("SnapAssist: Scheduling assist for sibling quarter \(siblingQuarter) in \(assistDelay)s")
-            workItem = DispatchWorkItem { [weak self] in
-                self?.showAssistForSiblingQuarter(
-                    siblingQuarter: siblingQuarter,
-                    on: screen,
-                    excludingPID: excludePID
-                )
-            }
-        } else {
+        // Only halves and quarters trigger picker
+        guard snappedPosition.oppositeHalf != nil || snappedPosition.siblingQuarter != nil else {
             debugLog("SnapAssist: Position \(snappedPosition) doesn't trigger picker")
             return
+        }
+        
+        debugLog("SnapAssist: Scheduling assist after \(snappedPosition) in \(assistDelay)s")
+        
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.showAssistUsingLayout(snappedPosition: snappedPosition, on: screen, excludingPID: excludePID)
         }
         
         delayTimer = workItem
@@ -83,82 +86,34 @@ final class SnapAssistController {
         cancelPendingAssist()
         assistWindow?.close()
         assistWindow = nil
+        pendingPositions = []
+        activePosition = nil
+        currentScreen = nil
+        excludePID = nil
         debugLog("SnapAssist: Dismissed")
     }
     
-    // MARK: - Private
+    // MARK: - ScreenLayout-Based Picker Logic
     
-    /// Determine the target position for the picker based on what's already snapped
-    /// - Parameters:
-    ///   - oppositeHalf: The opposite half position to check
-    ///   - screen: The screen to check on
-    ///   - excludePID: Process ID to exclude (the just-snapped window)
-    /// - Returns: The position to show picker for, or nil to skip picker entirely
-    private func determinePickerTarget(
-        for oppositeHalf: SnapPosition,
-        on screen: NSScreen,
-        excludingPID excludePID: pid_t?
-    ) -> SnapPosition? {
-        // If opposite half is cleanly snapped, skip picker
-        if windowManager.isPositionOccupied(oppositeHalf, on: screen, excludingPID: excludePID) {
-            debugLog("SnapAssist: Opposite half \(oppositeHalf) is cleanly snapped, skipping")
-            return nil
-        }
+    private func showAssistUsingLayout(snappedPosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
+        // Create layout snapshot
+        let layout = ScreenLayout(screen: screen, excludingPID: excludePID)
         
-        // Check quarters within the opposite half
-        guard let (quarter1, quarter2) = oppositeHalf.quarters else {
-            // No quarters (shouldn't happen for halves, but be safe)
-            return oppositeHalf
-        }
-        
-        let quarter1Occupied = windowManager.isPositionOccupied(quarter1, on: screen, excludingPID: excludePID)
-        let quarter2Occupied = windowManager.isPositionOccupied(quarter2, on: screen, excludingPID: excludePID)
-        
-        if quarter1Occupied && quarter2Occupied {
-            // Both quarters occupied, skip picker
-            debugLog("SnapAssist: Both quarters \(quarter1) and \(quarter2) are occupied, skipping")
-            return nil
-        } else if quarter1Occupied {
-            // Quarter 1 occupied, show picker for quarter 2
-            debugLog("SnapAssist: \(quarter1) occupied, targeting \(quarter2)")
-            return quarter2
-        } else if quarter2Occupied {
-            // Quarter 2 occupied, show picker for quarter 1
-            debugLog("SnapAssist: \(quarter2) occupied, targeting \(quarter1)")
-            return quarter1
-        } else {
-            // Neither quarter occupied, show picker for full opposite half
-            debugLog("SnapAssist: No quarters occupied, targeting full \(oppositeHalf)")
-            return oppositeHalf
-        }
-    }
-    
-    private func showAssistIfNeeded(oppositePosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Determine target position (may be half or quarter)
-        guard let targetPosition = determinePickerTarget(
-            for: oppositePosition,
-            on: screen,
-            excludingPID: excludePID
-        ) else {
-            debugLog("SnapAssist: No picker target available, skipping")
+        // Check if full screen is already filled
+        if layout.isFullScreenFilled {
+            debugLog("SnapAssist: Full screen is filled, no picker needed")
             return
         }
         
-        showPickerForPosition(targetPosition, on: screen, excludingPID: excludePID)
-    }
-    
-    private func showAssistForSiblingQuarter(siblingQuarter: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Only skip picker if sibling quarter is cleanly snapped (not just overlapped by a half-sized window)
-        if windowManager.isPositionOccupied(siblingQuarter, on: screen, excludingPID: excludePID) {
-            debugLog("SnapAssist: Sibling quarter \(siblingQuarter) is cleanly snapped, skipping")
+        // Get positions needing fill (may be halves or quarters depending on context)
+        let positionsNeedingFill = layout.positionsNeedingFill(after: snappedPosition)
+        
+        guard !positionsNeedingFill.isEmpty else {
+            debugLog("SnapAssist: No positions need filling")
             return
         }
         
-        showPickerForPosition(siblingQuarter, on: screen, excludingPID: excludePID)
-    }
-    
-    private func showPickerForPosition(_ targetPosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Get other windows (without thumbnails - just app info)
+        // Get available windows to show
         let otherWindows = windowManager.getOtherWindows(excludingPID: excludePID, on: screen)
         
         guard !otherWindows.isEmpty else {
@@ -166,28 +121,34 @@ final class SnapAssistController {
             return
         }
         
-        debugLog("SnapAssist: Showing picker with \(otherWindows.count) windows for position \(targetPosition)")
+        // Store state for multi-zone flow
+        self.pendingPositions = positionsNeedingFill
+        self.activePosition = positionsNeedingFill.first
+        self.currentScreen = screen
+        self.excludePID = excludePID
         
-        // Calculate frame for the picker (target position area)
-        let pickerFrame = targetPosition.frame(in: screen.visibleFrame, fullFrame: screen.frame)
+        debugLog("SnapAssist: Showing picker for \(positionsNeedingFill.count) positions: \(positionsNeedingFill)")
         
-        // Show the picker (enters modal lock state)
-        show(windows: otherWindows, targetPosition: targetPosition, frame: pickerFrame)
+        // Show the picker
+        showPickerWindow(windows: otherWindows, allPositions: positionsNeedingFill, on: screen)
     }
     
-    private func show(windows: [WindowInfo], targetPosition: SnapPosition, frame: CGRect) {
+    private func showPickerWindow(windows: [WindowInfo], allPositions: [SnapPosition], on screen: NSScreen) {
+        guard let activePosition = allPositions.first else { return }
+        
         assistWindow = SnapAssistWindow(
             windows: windows,
-            targetPosition: targetPosition,
-            frame: frame
+            allPositions: allPositions,
+            activePosition: activePosition,
+            screen: screen
         )
         
         assistWindow?.onWindowSelected = { [weak self] windowInfo in
-            self?.handleWindowSelected(windowInfo, position: targetPosition)
+            self?.handleWindowSelected(windowInfo)
         }
         
         assistWindow?.onDismiss = { [weak self] in
-            self?.assistWindow = nil
+            self?.dismiss()
         }
         
         // Show and activate the window
@@ -199,15 +160,51 @@ final class SnapAssistController {
         }
     }
     
-    private func handleWindowSelected(_ windowInfo: WindowInfo, position: SnapPosition) {
-        debugLog("SnapAssist: Selected window '\(windowInfo.title)' for position \(position)")
+    // MARK: - Selection Handling
+    
+    private func handleWindowSelected(_ windowInfo: WindowInfo) {
+        guard let activePosition = activePosition else {
+            debugLog("SnapAssist: No active position for selection")
+            dismiss()
+            return
+        }
         
-        // Clear reference and snap immediately - animation is handled in WindowManager
-        assistWindow = nil
+        debugLog("SnapAssist: Selected window '\(windowInfo.title)' for position \(activePosition)")
+        
+        // Snap the window
         windowManager.snapWindow(
             windowID: windowInfo.windowID,
             ownerPID: windowInfo.ownerPID,
-            to: position
+            to: activePosition
         )
+        
+        // Remove from pending queue
+        pendingPositions.removeAll { $0 == activePosition }
+        
+        // Check if more positions need filling
+        if let nextPosition = pendingPositions.first,
+           let screen = currentScreen {
+            // Advance to next position
+            self.activePosition = nextPosition
+            debugLog("SnapAssist: Advancing to next position: \(nextPosition)")
+            
+            // Get fresh window list (excluding the just-snapped window)
+            let otherWindows = windowManager.getOtherWindows(excludingPID: excludePID, on: screen)
+            
+            if otherWindows.isEmpty {
+                debugLog("SnapAssist: No more windows to show, dismissing")
+                dismiss()
+            } else {
+                // Prevent resignKey from triggering dismiss during transition
+                assistWindow?.onDismiss = nil
+                assistWindow?.close()
+                assistWindow = nil
+                showPickerWindow(windows: otherWindows, allPositions: pendingPositions, on: screen)
+            }
+        } else {
+            // All positions filled
+            debugLog("SnapAssist: All positions filled, dismissing")
+            dismiss()
+        }
     }
 }
