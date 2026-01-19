@@ -47,6 +47,11 @@ final class SnapAssistWindow: NSWindow {
         }
     }
     
+    deinit {
+        // Remove NotificationCenter observer to prevent memory leak
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // MARK: - Configuration
     
     private func configureWindow() {

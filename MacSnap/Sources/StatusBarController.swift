@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 
 /// Manages the menu bar status item and its menu
 final class StatusBarController: NSObject {
@@ -17,6 +16,15 @@ final class StatusBarController: NSObject {
     private var pulseTimer: Timer?
     private var pulseDirection: CGFloat = -0.05
     private var currentAlpha: CGFloat = 1.0
+    
+    // MARK: - Cached Menu Items (for efficient updates)
+    
+    private var cachedMenu: NSMenu?
+    private var permissionStatusItem: NSMenuItem?
+    private var snappingStatusItem: NSMenuItem?
+    private var enableToggleItem: NSMenuItem?
+    private var grantPermissionsItem: NSMenuItem?
+    private var launchAtLoginItem: NSMenuItem?
     
     override init() {
         super.init()
@@ -55,7 +63,8 @@ final class StatusBarController: NSObject {
         }
         
         button.toolTip = "MacSnap - Window Snapping"
-        statusItem?.menu = createMenu()
+        cachedMenu = createMenu()
+        statusItem?.menu = cachedMenu
         
         debugLog("StatusBarController: Setup complete - icon should be visible in menu bar")
     }
@@ -68,7 +77,7 @@ final class StatusBarController: NSObject {
         
         isInitializing = false
         stopPulseAnimation()
-        refreshMenu()
+        updateMenuItems()
         debugLog("StatusBarController: App marked as ready")
     }
     
@@ -109,66 +118,47 @@ final class StatusBarController: NSObject {
         button.alphaValue = currentAlpha
     }
     
-    // MARK: - Menu Creation
+    // MARK: - Menu Creation (Initial)
     
     private func createMenu() -> NSMenu {
         let menu = NSMenu()
         
-        // Status Header
+        // Status Header - Permission status
         let hasPerms = WindowManager.shared.hasAccessibilityPermissions
-        let isActive = hotkeyManager.isEnabled
+        permissionStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        permissionStatusItem?.isEnabled = false
+        menu.addItem(permissionStatusItem!)
         
-        let statusIcon = hasPerms ? "✓" : "✗"
-        let statusText = hasPerms ? "Permissions: Granted" : "Permissions: NOT GRANTED"
-        let statusItem = NSMenuItem(title: "\(statusIcon) \(statusText)", action: nil, keyEquivalent: "")
-        statusItem.isEnabled = false
-        if !hasPerms {
-            statusItem.attributedTitle = NSAttributedString(
-                string: "✗ Permissions: NOT GRANTED",
-                attributes: [.foregroundColor: NSColor.systemRed]
-            )
-        }
-        menu.addItem(statusItem)
-        
-        // Snapping status - show "Starting..." during initialization
-        let activeItem: NSMenuItem
-        if isInitializing {
-            activeItem = NSMenuItem(title: "◐ Snapping: Starting...", action: nil, keyEquivalent: "")
-            activeItem.attributedTitle = NSAttributedString(
-                string: "◐ Snapping: Starting...",
-                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
-            )
-        } else {
-            let activeIcon = isActive ? "●" : "○"
-            let activeText = isActive ? "Snapping: Active" : "Snapping: Inactive"
-            activeItem = NSMenuItem(title: "\(activeIcon) \(activeText)", action: nil, keyEquivalent: "")
-        }
-        activeItem.isEnabled = false
-        menu.addItem(activeItem)
+        // Snapping status
+        snappingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        snappingStatusItem?.isEnabled = false
+        menu.addItem(snappingStatusItem!)
         
         menu.addItem(NSMenuItem.separator())
         
         // Open Accessibility Settings (prominent if permissions missing)
-        if !hasPerms {
-            let permItem = NSMenuItem(
-                title: "⚠️ Grant Accessibility Permissions...",
-                action: #selector(openAccessibilitySettings),
-                keyEquivalent: ""
-            )
-            permItem.target = self
-            menu.addItem(permItem)
-            menu.addItem(NSMenuItem.separator())
-        }
-        
-        // Enable/Disable toggle (disabled while initializing)
-        let enableItem = NSMenuItem(
-            title: isInitializing ? "Starting..." : (isActive ? "Disable Snapping" : "Enable Snapping"),
-            action: isInitializing ? nil : #selector(toggleEnabled),
-            keyEquivalent: isInitializing ? "" : "e"
+        grantPermissionsItem = NSMenuItem(
+            title: "⚠️ Grant Accessibility Permissions...",
+            action: #selector(openAccessibilitySettings),
+            keyEquivalent: ""
         )
-        enableItem.target = self
-        enableItem.isEnabled = !isInitializing
-        menu.addItem(enableItem)
+        grantPermissionsItem?.target = self
+        grantPermissionsItem?.isHidden = hasPerms
+        menu.addItem(grantPermissionsItem!)
+        
+        // Separator after grant permissions (hidden if perms granted)
+        let grantSeparator = NSMenuItem.separator()
+        grantSeparator.isHidden = hasPerms
+        menu.addItem(grantSeparator)
+        
+        // Enable/Disable toggle
+        enableToggleItem = NSMenuItem(
+            title: "",
+            action: #selector(toggleEnabled),
+            keyEquivalent: "e"
+        )
+        enableToggleItem?.target = self
+        menu.addItem(enableToggleItem!)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -205,6 +195,9 @@ final class StatusBarController: NSObject {
         // Set delegate to refresh menu state
         menu.delegate = self
         
+        // Update dynamic items with current state
+        updateMenuItems()
+        
         return menu
     }
     
@@ -212,14 +205,14 @@ final class StatusBarController: NSObject {
         let menu = NSMenu()
         
         // Launch at Login
-        let launchItem = NSMenuItem(
+        launchAtLoginItem = NSMenuItem(
             title: "Launch at Login",
             action: #selector(toggleLaunchAtLogin),
             keyEquivalent: ""
         )
-        launchItem.target = self
-        launchItem.state = isLaunchAtLoginEnabled ? .on : .off
-        menu.addItem(launchItem)
+        launchAtLoginItem?.target = self
+        launchAtLoginItem?.state = AppUtils.isLaunchAtLoginEnabled ? .on : .off
+        menu.addItem(launchAtLoginItem!)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -242,14 +235,6 @@ final class StatusBarController: NSObject {
         menu.addItem(accessItem)
         
         return menu
-    }
-    
-    @objc private func openAccessibilitySettings() {
-        AppUtils.openAccessibilitySettings()
-    }
-    
-    @objc private func showWelcomeScreen() {
-        OnboardingWindowController.shared.showWindow()
     }
     
     private func createShortcutsMenu() -> NSMenu {
@@ -284,29 +269,71 @@ final class StatusBarController: NSObject {
         return menu
     }
     
+    // MARK: - Menu Updates (Efficient)
+    
+    /// Update only the dynamic menu items instead of rebuilding the entire menu
+    private func updateMenuItems() {
+        let hasPerms = WindowManager.shared.hasAccessibilityPermissions
+        let isActive = hotkeyManager.isEnabled
+        
+        // Update permission status
+        let statusIcon = hasPerms ? "✓" : "✗"
+        let statusText = hasPerms ? "Permissions: Granted" : "Permissions: NOT GRANTED"
+        permissionStatusItem?.title = "\(statusIcon) \(statusText)"
+        if !hasPerms {
+            permissionStatusItem?.attributedTitle = NSAttributedString(
+                string: "✗ Permissions: NOT GRANTED",
+                attributes: [.foregroundColor: NSColor.systemRed]
+            )
+        } else {
+            permissionStatusItem?.attributedTitle = nil
+        }
+        
+        // Update snapping status
+        if isInitializing {
+            snappingStatusItem?.title = "◐ Snapping: Starting..."
+            snappingStatusItem?.attributedTitle = NSAttributedString(
+                string: "◐ Snapping: Starting...",
+                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+            )
+        } else {
+            let activeIcon = isActive ? "●" : "○"
+            let activeText = isActive ? "Snapping: Active" : "Snapping: Inactive"
+            snappingStatusItem?.title = "\(activeIcon) \(activeText)"
+            snappingStatusItem?.attributedTitle = nil
+        }
+        
+        // Update grant permissions visibility
+        grantPermissionsItem?.isHidden = hasPerms
+        
+        // Update enable toggle
+        enableToggleItem?.title = isInitializing ? "Starting..." : (isActive ? "Disable Snapping" : "Enable Snapping")
+        enableToggleItem?.action = isInitializing ? nil : #selector(toggleEnabled)
+        enableToggleItem?.keyEquivalent = isInitializing ? "" : "e"
+        enableToggleItem?.isEnabled = !isInitializing
+        
+        // Update launch at login state
+        launchAtLoginItem?.state = AppUtils.isLaunchAtLoginEnabled ? .on : .off
+    }
+    
     // MARK: - Actions
+    
+    @objc private func openAccessibilitySettings() {
+        AppUtils.openAccessibilitySettings()
+    }
+    
+    @objc private func showWelcomeScreen() {
+        OnboardingWindowController.shared.showWindow()
+    }
     
     @objc private func toggleEnabled() {
         hotkeyManager.toggle()
-        refreshMenu()
+        updateMenuItems()
     }
     
     @objc private func toggleLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            do {
-                if isLaunchAtLoginEnabled {
-                    try SMAppService.mainApp.unregister()
-                } else {
-                    try SMAppService.mainApp.register()
-                }
-            } catch {
-                print("MacSnap: Failed to toggle launch at login: \(error)")
-            }
-        } else {
-            // Fallback for older macOS versions
-            toggleLaunchAtLoginLegacy()
-        }
-        refreshMenu()
+        AppUtils.toggleLaunchAtLogin()
+        updateMenuItems()
     }
     
     @objc private func restartApp() {
@@ -315,80 +342,6 @@ final class StatusBarController: NSObject {
     
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)
-    }
-    
-    // MARK: - Launch at Login
-    
-    private var isLaunchAtLoginEnabled: Bool {
-        if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status == .enabled
-        } else {
-            return isLaunchAtLoginEnabledLegacy
-        }
-    }
-    
-    // Legacy support for macOS < 13
-    private var isLaunchAtLoginEnabledLegacy: Bool {
-        guard let bundleURL = Bundle.main.bundleURL as CFURL? else { return false }
-        
-        guard let loginItems = LSSharedFileListCreate(
-            nil,
-            kLSSharedFileListSessionLoginItems.takeUnretainedValue(),
-            nil
-        )?.takeRetainedValue() else { return false }
-        
-        guard let items = LSSharedFileListCopySnapshot(loginItems, nil)?.takeRetainedValue() as? [LSSharedFileListItem] else {
-            return false
-        }
-        
-        for item in items {
-            if let itemURL = LSSharedFileListItemCopyResolvedURL(item, 0, nil)?.takeRetainedValue() as URL?,
-               itemURL == bundleURL as URL {
-                return true
-            }
-        }
-        return false
-    }
-    
-    private func toggleLaunchAtLoginLegacy() {
-        guard let bundleURL = Bundle.main.bundleURL as CFURL? else { return }
-        
-        guard let loginItems = LSSharedFileListCreate(
-            nil,
-            kLSSharedFileListSessionLoginItems.takeUnretainedValue(),
-            nil
-        )?.takeRetainedValue() else { return }
-        
-        if isLaunchAtLoginEnabledLegacy {
-            // Remove from login items
-            guard let items = LSSharedFileListCopySnapshot(loginItems, nil)?.takeRetainedValue() as? [LSSharedFileListItem] else {
-                return
-            }
-            for item in items {
-                if let itemURL = LSSharedFileListItemCopyResolvedURL(item, 0, nil)?.takeRetainedValue() as URL?,
-                   itemURL == bundleURL as URL {
-                    LSSharedFileListItemRemove(loginItems, item)
-                    break
-                }
-            }
-        } else {
-            // Add to login items
-            LSSharedFileListInsertItemURL(
-                loginItems,
-                kLSSharedFileListItemLast.takeUnretainedValue(),
-                nil,
-                nil,
-                bundleURL,
-                nil,
-                nil
-            )
-        }
-    }
-    
-    // MARK: - Helpers
-    
-    private func refreshMenu() {
-        statusItem?.menu = createMenu()
     }
 }
 
@@ -408,8 +361,8 @@ extension StatusBarController: NSMenuDelegate {
         
         lastKnownPermissionState = currentPermissionState
         
-        // Refresh menu items when opened
-        refreshMenu()
+        // Update dynamic menu items (efficient - no rebuild)
+        updateMenuItems()
     }
     
     private func showNotificationAndRestart() {

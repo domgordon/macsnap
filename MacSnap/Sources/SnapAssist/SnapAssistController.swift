@@ -22,8 +22,8 @@ final class SnapAssistController {
     /// The screen we're showing pickers on
     private var currentScreen: NSScreen?
     
-    /// PID to exclude from window lists
-    private var excludePID: pid_t?
+    /// Window ID to exclude from window lists (the window that was just snapped)
+    private var excludeWindowID: CGWindowID?
     
     /// Whether the snap assist overlay is currently showing (modal lock state)
     var isShowingAssist: Bool {
@@ -42,8 +42,8 @@ final class SnapAssistController {
     /// - Parameters:
     ///   - snappedPosition: The position the window was just snapped to
     ///   - screen: The screen where the snap occurred
-    ///   - excludePID: Process ID to exclude (the app that was just snapped)
-    func scheduleAssist(for snappedPosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
+    ///   - excludeWindowID: Window ID to exclude (the window that was just snapped)
+    func scheduleAssist(for snappedPosition: SnapPosition, on screen: NSScreen, excludingWindowID excludeWindowID: CGWindowID?) {
         // Cancel any pending timer
         cancelPendingAssist()
         
@@ -67,7 +67,7 @@ final class SnapAssistController {
         debugLog("SnapAssist: Scheduling assist after \(snappedPosition) in \(assistDelay)s")
         
         let workItem = DispatchWorkItem { [weak self] in
-            self?.showAssistUsingLayout(snappedPosition: snappedPosition, on: screen, excludingPID: excludePID)
+            self?.showAssistUsingLayout(snappedPosition: snappedPosition, on: screen, excludingWindowID: excludeWindowID)
         }
         
         delayTimer = workItem
@@ -94,15 +94,15 @@ final class SnapAssistController {
         pendingPositions = []
         activePosition = nil
         currentScreen = nil
-        excludePID = nil
+        excludeWindowID = nil
         debugLog("SnapAssist: Dismissed (window closed, state cleared)")
     }
     
     // MARK: - ScreenLayout-Based Picker Logic
     
-    private func showAssistUsingLayout(snappedPosition: SnapPosition, on screen: NSScreen, excludingPID excludePID: pid_t?) {
-        // Create layout snapshot
-        let layout = ScreenLayout(screen: screen, excludingPID: excludePID)
+    private func showAssistUsingLayout(snappedPosition: SnapPosition, on screen: NSScreen, excludingWindowID excludeWindowID: CGWindowID?) {
+        // Create layout snapshot (ScreenLayout checks zone fills, not which windows to show)
+        let layout = ScreenLayout(screen: screen, excludingPID: nil)
         
         // Check if full screen is already filled
         if layout.isFullScreenFilled {
@@ -118,8 +118,8 @@ final class SnapAssistController {
             return
         }
         
-        // Get available windows to show
-        let otherWindows = windowManager.getOtherWindows(excludingPID: excludePID, on: screen)
+        // Get available windows to show (excludes specific window + clean-snapped windows)
+        let otherWindows = windowManager.getOtherWindows(excludingWindowID: excludeWindowID, on: screen)
         
         guard !otherWindows.isEmpty else {
             debugLog("SnapAssist: No other windows to show")
@@ -130,7 +130,7 @@ final class SnapAssistController {
         self.pendingPositions = positionsNeedingFill
         self.activePosition = positionsNeedingFill.first
         self.currentScreen = screen
-        self.excludePID = excludePID
+        self.excludeWindowID = excludeWindowID
         
         debugLog("SnapAssist: Showing picker for \(positionsNeedingFill.count) positions: \(positionsNeedingFill)")
         
@@ -232,8 +232,8 @@ final class SnapAssistController {
             self.activePosition = nextPosition
             debugLog("SnapAssist: Advancing to next position: \(nextPosition.displayName)")
             
-            // Get fresh window list (excluding the original snapped app)
-            let otherWindows = windowManager.getOtherWindows(excludingPID: excludePID, on: screen)
+            // Get fresh window list (excluding the original snapped window + clean-snapped windows)
+            let otherWindows = windowManager.getOtherWindows(excludingWindowID: excludeWindowID, on: screen)
             debugLog("SnapAssist: Found \(otherWindows.count) windows for next picker")
             
             if otherWindows.isEmpty {

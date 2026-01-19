@@ -160,13 +160,13 @@ final class HotkeyManager {
         if !hasCommand && !hasShift {
             switch keyCode {
             case KeyCode.leftArrow:
-                return .smartLeft
+                return .smartDirection(.left)
             case KeyCode.rightArrow:
-                return .smartRight
+                return .smartDirection(.right)
             case KeyCode.upArrow:
-                return .smartUp
+                return .smartDirection(.up)
             case KeyCode.downArrow:
-                return .smartDown
+                return .smartDirection(.down)
             case KeyCode.returnKey, KeyCode.enter:
                 return .snap(.maximize)
             default:
@@ -184,39 +184,17 @@ final class HotkeyManager {
             log("Snapping to \(position.displayName)")
             windowManager.snapFrontmostWindow(to: position)
             
-        case .smartUp:
+        case .smartDirection(let direction):
             let currentPosition = windowManager.detectCurrentSnapPosition()
-            let targetPosition = windowManager.targetPositionForUp(from: currentPosition)
-            log("Smart up: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
-            windowManager.snapFrontmostWindow(to: targetPosition)
+            let result = SnapStateMachine.nextPosition(from: currentPosition, direction: direction)
             
-        case .smartDown:
-            let currentPosition = windowManager.detectCurrentSnapPosition()
-            if let targetPosition = windowManager.targetPositionForDown(from: currentPosition) {
-                log("Smart down: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
+            switch result {
+            case .snap(let targetPosition):
+                log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
                 windowManager.snapFrontmostWindow(to: targetPosition)
-            } else {
-                log("Smart down: \(currentPosition?.displayName ?? "unsnapped") → middle")
-                windowManager.unsnapToMiddle()
-            }
-            
-        case .smartLeft:
-            let currentPosition = windowManager.detectCurrentSnapPosition()
-            if let targetPosition = windowManager.targetPositionForLeft(from: currentPosition) {
-                log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
-                windowManager.snapFrontmostWindow(to: targetPosition)
-            } else {
-                log("Smart left: \(currentPosition?.displayName ?? "unsnapped") → middle")
-                windowManager.unsnapToMiddle()
-            }
-            
-        case .smartRight:
-            let currentPosition = windowManager.detectCurrentSnapPosition()
-            if let targetPosition = windowManager.targetPositionForRight(from: currentPosition) {
-                log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
-                windowManager.snapFrontmostWindow(to: targetPosition)
-            } else {
-                log("Smart right: \(currentPosition?.displayName ?? "unsnapped") → middle")
+                
+            case .unsnapToMiddle:
+                log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → middle")
                 windowManager.unsnapToMiddle()
             }
             
@@ -230,13 +208,21 @@ final class HotkeyManager {
 // MARK: - Supporting Types
 
 /// Actions that can be triggered by hotkeys
-private enum SnapAction {
+private enum SnapAction: CustomStringConvertible {
     case snap(SnapPosition)
-    case smartUp
-    case smartDown
-    case smartLeft
-    case smartRight
+    case smartDirection(SnapDirection)
     case moveToMonitor(MonitorDirection)
+    
+    var description: String {
+        switch self {
+        case .snap(let position):
+            return "snap(\(position.displayName))"
+        case .smartDirection(let direction):
+            return "smart(\(direction))"
+        case .moveToMonitor(let direction):
+            return "moveToMonitor(\(direction))"
+        }
+    }
 }
 
 /// macOS key codes for arrow keys and return

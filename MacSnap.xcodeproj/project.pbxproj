@@ -22,6 +22,11 @@
 		A1000013 /* SnapAssistWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015 /* SnapAssistWindow.swift */; };
 		A1000014 /* WindowThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000016 /* WindowThumbnailView.swift */; };
 		A1000015 /* ScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000017 /* ScreenLayout.swift */; };
+		A1000016 /* CoordinateConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000018 /* CoordinateConverter.swift */; };
+		A1000017 /* FrameMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000019 /* FrameMatcher.swift */; };
+		A1000018 /* WindowListCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000020 /* WindowListCache.swift */; };
+		A1000019 /* WindowAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000021 /* WindowAnimator.swift */; };
+		A1000020 /* SnapStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000022 /* SnapStateMachine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +47,11 @@
 		A2000015 /* SnapAssistWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAssistWindow.swift; sourceTree = "<group>"; };
 		A2000016 /* WindowThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowThumbnailView.swift; sourceTree = "<group>"; };
 		A2000017 /* ScreenLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLayout.swift; sourceTree = "<group>"; };
+		A2000018 /* CoordinateConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConverter.swift; sourceTree = "<group>"; };
+		A2000019 /* FrameMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameMatcher.swift; sourceTree = "<group>"; };
+		A2000020 /* WindowListCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowListCache.swift; sourceTree = "<group>"; };
+		A2000021 /* WindowAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAnimator.swift; sourceTree = "<group>"; };
+		A2000022 /* SnapStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateMachine.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,10 +103,12 @@
 				A2000005 /* WindowManager.swift */,
 				A2000006 /* ScreenManager.swift */,
 				A2000007 /* SnapPosition.swift */,
+				A2000022 /* SnapStateMachine.swift */,
 				A2000017 /* ScreenLayout.swift */,
 				A2000011 /* OnboardingManager.swift */,
 				A2000012 /* OnboardingView.swift */,
 				A2000013 /* OnboardingWindowController.swift */,
+				A5000006 /* Core */,
 				A5000005 /* SnapAssist */,
 			);
 			path = Sources;
@@ -110,6 +122,17 @@
 				A2000016 /* WindowThumbnailView.swift */,
 			);
 			path = SnapAssist;
+			sourceTree = "<group>";
+		};
+		A5000006 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A2000018 /* CoordinateConverter.swift */,
+				A2000019 /* FrameMatcher.swift */,
+				A2000020 /* WindowListCache.swift */,
+				A2000021 /* WindowAnimator.swift */,
+			);
+			path = Core;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -177,6 +200,7 @@
 				A1000005 /* WindowManager.swift in Sources */,
 				A1000006 /* ScreenManager.swift in Sources */,
 				A1000007 /* SnapPosition.swift in Sources */,
+				A1000020 /* SnapStateMachine.swift in Sources */,
 				A1000009 /* OnboardingManager.swift in Sources */,
 				A1000010 /* OnboardingView.swift in Sources */,
 				A1000011 /* OnboardingWindowController.swift in Sources */,
@@ -184,6 +208,10 @@
 				A1000013 /* SnapAssistWindow.swift in Sources */,
 				A1000014 /* WindowThumbnailView.swift in Sources */,
 				A1000015 /* ScreenLayout.swift in Sources */,
+				A1000016 /* CoordinateConverter.swift in Sources */,
+				A1000017 /* FrameMatcher.swift in Sources */,
+				A1000018 /* WindowListCache.swift in Sources */,
+				A1000019 /* WindowAnimator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

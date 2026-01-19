@@ -12,19 +12,14 @@ struct ScreenLayout {
     private let excludePID: pid_t?
     private let windowList: [[String: Any]]
     
-    // Tolerances for position/size matching
-    private let positionTolerance: CGFloat = 5.0
-    private let sizeTolerance: CGFloat = 20.0
-    
     // MARK: - Initialization
     
     init(screen: NSScreen, excludingPID: pid_t?) {
         self.screen = screen
         self.excludePID = excludingPID
         
-        // Fetch window list once (in z-order, front to back)
-        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        self.windowList = (CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]]) ?? []
+        // Use cached window list (in z-order, front to back)
+        self.windowList = WindowListCache.shared.getWindowList()
     }
     
     // MARK: - Public API
@@ -160,10 +155,12 @@ struct ScreenLayout {
         
         // First pass: find a window that exactly fits this zone
         for (index, windowInfo) in windowList.enumerated() {
-            guard let frame = getWindowFrame(windowInfo) else { continue }
-            if !isValidWindow(windowInfo) { continue }
+            guard let frame = WindowListCache.getFrame(windowInfo) else { continue }
+            guard WindowListCache.isValidWindow(windowInfo, excludePID: excludePID, minSize: 200) else { continue }
             
-            if isExactFit(frame, to: zoneFrame) {
+            // Use FrameMatcher for consistent tolerance-based comparison
+            // Note: Using exact tolerance (5.0) for zone position, but larger tolerance for size
+            if FrameMatcher.matches(frame, zoneFrame, positionTolerance: 5.0, sizeTolerance: FrameMatcher.sizeTolerance) {
                 foundExactFit = true
                 exactFitIndex = index
                 break
@@ -177,8 +174,8 @@ struct ScreenLayout {
         // Second pass: check if any window at higher z-order (lower index) overlaps it
         for index in 0..<exactFitIndex {
             let windowInfo = windowList[index]
-            guard let frame = getWindowFrame(windowInfo) else { continue }
-            if !isValidWindow(windowInfo) { continue }
+            guard let frame = WindowListCache.getFrame(windowInfo) else { continue }
+            guard WindowListCache.isValidWindow(windowInfo, excludePID: excludePID, minSize: 200) else { continue }
             
             if frame.intersects(zoneFrame) {
                 debugLog("ScreenLayout: Zone overlapped by higher window at index \(index)")
@@ -188,59 +185,5 @@ struct ScreenLayout {
         
         debugLog("ScreenLayout: Zone is filled (exact fit at index \(exactFitIndex), no overlap)")
         return true
-    }
-    
-    private func isExactFit(_ windowFrame: CGRect, to zoneFrame: CGRect) -> Bool {
-        let matchesX = abs(windowFrame.origin.x - zoneFrame.origin.x) < positionTolerance
-        let matchesY = abs(windowFrame.origin.y - zoneFrame.origin.y) < positionTolerance
-        let matchesWidth = abs(windowFrame.width - zoneFrame.width) < sizeTolerance
-        let matchesHeight = abs(windowFrame.height - zoneFrame.height) < sizeTolerance
-        return matchesX && matchesY && matchesWidth && matchesHeight
-    }
-    
-    private func isValidWindow(_ windowInfo: [String: Any]) -> Bool {
-        guard let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
-              let layer = windowInfo[kCGWindowLayer as String] as? Int,
-              let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
-              let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] else {
-            return false
-        }
-        
-        // Skip excluded app
-        if let excludePID = excludePID, ownerPID == excludePID {
-            return false
-        }
-        
-        // Skip non-normal windows (layer 0 = normal)
-        if layer != 0 { return false }
-        
-        // Skip MacSnap itself
-        if ownerName == "MacSnap" { return false }
-        
-        // Skip small windows (tooltips, etc.)
-        let width = boundsDict["Width"] ?? 0
-        let height = boundsDict["Height"] ?? 0
-        if width < 200 || height < 200 { return false }
-        
-        return true
-    }
-    
-    private func getWindowFrame(_ windowInfo: [String: Any]) -> CGRect? {
-        guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] else {
-            return nil
-        }
-        
-        let cgX = boundsDict["X"] ?? 0
-        let cgY = boundsDict["Y"] ?? 0
-        let width = boundsDict["Width"] ?? 0
-        let height = boundsDict["Height"] ?? 0
-        
-        let cgFrame = CGRect(x: cgX, y: cgY, width: width, height: height)
-        
-        // Convert from CG coordinates (top-left origin) to NSScreen (bottom-left origin)
-        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? 0
-        let nsY = mainScreenHeight - (cgFrame.origin.y + cgFrame.height)
-        
-        return CGRect(x: cgFrame.origin.x, y: nsY, width: cgFrame.width, height: cgFrame.height)
     }
 }

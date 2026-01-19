@@ -1,5 +1,4 @@
 import SwiftUI
-import ServiceManagement
 
 /// SwiftUI onboarding view for first-run experience
 struct OnboardingView: View {
@@ -7,8 +6,7 @@ struct OnboardingView: View {
     @State private var hasPermissions: Bool = WindowManager.shared.hasAccessibilityPermissions
     @State private var lastKnownPermissionState: Bool = WindowManager.shared.hasAccessibilityPermissions
     @State private var isRestarting: Bool = false
-    
-    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+    @State private var timerCancellable: Timer?
     
     var onComplete: (() -> Void)?
     
@@ -71,9 +69,7 @@ struct OnboardingView: View {
         .frame(width: 320, height: 380)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear(perform: onAppear)
-        .onReceive(timer) { _ in
-            checkPermissions()
-        }
+        .onDisappear(perform: onDisappear)
     }
     
     // MARK: - Permission Card
@@ -123,8 +119,13 @@ struct OnboardingView: View {
     // MARK: - Actions
     
     private func onAppear() {
-        // Silently enable launch at login
-        enableLaunchAtLogin()
+        // Silently enable launch at login using consolidated AppUtils
+        AppUtils.setLaunchAtLogin(true)
+        
+        // Start polling timer for permission changes (properly managed)
+        timerCancellable = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [self] _ in
+            self.checkPermissions()
+        }
         
         // If permissions already granted, auto-complete after brief delay
         if hasPermissions {
@@ -135,6 +136,12 @@ struct OnboardingView: View {
                 }
             }
         }
+    }
+    
+    private func onDisappear() {
+        // Clean up timer to prevent memory leak
+        timerCancellable?.invalidate()
+        timerCancellable = nil
     }
     
     private func checkPermissions() {
@@ -154,22 +161,13 @@ struct OnboardingView: View {
         isRestarting = true
         OnboardingManager.shared.markOnboardingComplete()
         
+        // Clean up timer before restart
+        timerCancellable?.invalidate()
+        timerCancellable = nil
+        
         // Brief delay to show the "Restarting..." state
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             AppUtils.restartApp()
-        }
-    }
-    
-    // MARK: - Launch at Login
-    
-    private func enableLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            do {
-                try SMAppService.mainApp.register()
-                debugLog("OnboardingView: Launch at login enabled")
-            } catch {
-                debugLog("OnboardingView: Failed to enable launch at login: \(error)")
-            }
         }
     }
 }
