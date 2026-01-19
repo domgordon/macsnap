@@ -215,7 +215,17 @@ final class WindowManager {
             return []
         }
         
-        var windows: [WindowInfo] = []
+        // First pass: collect basic window info and CG frames
+        struct WindowCandidate {
+            let windowID: CGWindowID
+            let ownerPID: pid_t
+            let ownerName: String
+            let cgTitle: String
+            let cgFrame: CGRect
+            let nsFrame: CGRect
+        }
+        
+        var candidates: [WindowCandidate] = []
         
         for windowInfo in windowList {
             // Get required properties
@@ -249,8 +259,8 @@ final class WindowManager {
                 continue
             }
             
-            // Get window title (optional)
-            let title = windowInfo[kCGWindowName as String] as? String ?? ownerName
+            // Get window title from CG (often empty or generic)
+            let cgTitle = windowInfo[kCGWindowName as String] as? String ?? ownerName
             
             // Convert CG bounds to NSScreen coordinates
             let cgX = boundsDict["X"] ?? 0
@@ -264,17 +274,46 @@ final class WindowManager {
                 continue
             }
             
-            let info = WindowInfo(
+            candidates.append(WindowCandidate(
                 windowID: windowID,
                 ownerPID: ownerPID,
                 ownerName: ownerName,
-                title: title,
-                frame: nsFrame
-            )
-            windows.append(info)
+                cgTitle: cgTitle,
+                cgFrame: cgFrame,
+                nsFrame: nsFrame
+            ))
         }
         
-        debugLog("WindowManager: Found \(windows.count) other windows")
+        // Second pass: identify apps with multiple windows (need real titles)
+        var windowCountByPID: [pid_t: Int] = [:]
+        for candidate in candidates {
+            windowCountByPID[candidate.ownerPID, default: 0] += 1
+        }
+        let multiWindowPIDs = Set(windowCountByPID.filter { $0.value > 1 }.keys)
+        
+        // Third pass: build final WindowInfo array, fetching real titles for multi-window apps
+        var windows: [WindowInfo] = []
+        for candidate in candidates {
+            let title: String
+            
+            if multiWindowPIDs.contains(candidate.ownerPID) {
+                // Fetch real title via Accessibility API for disambiguation
+                title = getRealWindowTitle(forFrame: candidate.cgFrame, ownerPID: candidate.ownerPID) 
+                    ?? candidate.cgTitle
+            } else {
+                title = candidate.cgTitle
+            }
+            
+            windows.append(WindowInfo(
+                windowID: candidate.windowID,
+                ownerPID: candidate.ownerPID,
+                ownerName: candidate.ownerName,
+                title: title,
+                frame: candidate.nsFrame
+            ))
+        }
+        
+        debugLog("WindowManager: Found \(windows.count) other windows (\(multiWindowPIDs.count) apps with multiple windows)")
         return windows
     }
     
@@ -466,6 +505,53 @@ final class WindowManager {
         if AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) {
             return size
         }
+        return nil
+    }
+    
+    /// Get window title via Accessibility API
+    /// This provides accurate titles (e.g., page titles for Safari) that CGWindowListCopyWindowInfo often misses
+    private func getWindowTitle(_ window: AXUIElement) -> String? {
+        var titleRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleRef)
+        
+        guard result == .success, let title = titleRef as? String, !title.isEmpty else {
+            return nil
+        }
+        return title
+    }
+    
+    /// Get the real window title for a window by matching its frame to an AXUIElement
+    /// - Parameters:
+    ///   - cgFrame: The window frame in CG coordinates (top-left origin)
+    ///   - ownerPID: The process ID that owns the window
+    /// - Returns: The window title from Accessibility API, or nil if not found
+    private func getRealWindowTitle(forFrame cgFrame: CGRect, ownerPID: pid_t) -> String? {
+        let appElement = AXUIElementCreateApplication(ownerPID)
+        
+        var windowsRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+        
+        guard result == .success, let windows = windowsRef as? [AXUIElement] else {
+            return nil
+        }
+        
+        let tolerance: CGFloat = 5.0
+        
+        for axWindow in windows {
+            guard let axPosition = getWindowPosition(axWindow),
+                  let axSize = getWindowSize(axWindow) else {
+                continue
+            }
+            
+            // Match by frame (AX position is in same coordinate system as CG bounds)
+            if abs(axPosition.x - cgFrame.origin.x) < tolerance &&
+               abs(axPosition.y - cgFrame.origin.y) < tolerance &&
+               abs(axSize.width - cgFrame.width) < tolerance &&
+               abs(axSize.height - cgFrame.height) < tolerance {
+                return getWindowTitle(axWindow)
+            }
+        }
+        
         return nil
     }
     
