@@ -179,6 +179,19 @@ final class StatusBarController: NSObject {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Check for Updates (only in Release builds)
+        #if !DEBUG
+        checkForUpdatesItem = NSMenuItem(
+            title: "Check for Updates...",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        checkForUpdatesItem?.target = self
+        menu.addItem(checkForUpdatesItem!)
+        
+        menu.addItem(NSMenuItem.separator())
+        #endif
+        
         // Shortcuts reference submenu
         let shortcutsItem = NSMenuItem(title: "Keyboard Shortcuts", action: nil, keyEquivalent: "")
         shortcutsItem.submenu = createShortcutsMenu()
@@ -232,19 +245,6 @@ final class StatusBarController: NSObject {
         menu.addItem(launchAtLoginItem!)
         
         menu.addItem(NSMenuItem.separator())
-        
-        // Check for Updates (only in Release builds)
-        #if !DEBUG
-        checkForUpdatesItem = NSMenuItem(
-            title: "Check for Updates...",
-            action: #selector(checkForUpdates),
-            keyEquivalent: ""
-        )
-        checkForUpdatesItem?.target = self
-        menu.addItem(checkForUpdatesItem!)
-        
-        menu.addItem(NSMenuItem.separator())
-        #endif
         
         // Show Welcome Screen
         let welcomeItem = NSMenuItem(
@@ -367,6 +367,8 @@ final class StatusBarController: NSObject {
     }
     
     @objc private func checkForUpdates() {
+        // Bring app to foreground so update window appears on top
+        NSApp.activate(ignoringOtherApps: true)
         UpdateController.shared.checkForUpdates(nil)
     }
     
