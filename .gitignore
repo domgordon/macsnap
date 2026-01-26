@@ -21,3 +21,4 @@ website/.env*.local
 
 # DMG build artifacts
 *.dmg
+*.xcworkspace/
