@@ -28,6 +28,8 @@
 		A1000019 /* WindowAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000021 /* WindowAnimator.swift */; };
 		A1000020 /* SnapStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000022 /* SnapStateMachine.swift */; };
 		A1000021 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000023 /* Assets.xcassets */; };
+		A1000022 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000024 /* UpdateController.swift */; };
+		C1000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C2000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +56,7 @@
 		A2000021 /* WindowAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAnimator.swift; sourceTree = "<group>"; };
 		A2000022 /* SnapStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateMachine.swift; sourceTree = "<group>"; };
 		A2000023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000024 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -62,6 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +106,7 @@
 				A2000002 /* AppDelegate.swift */,
 				A2000010 /* AppUtils.swift */,
 				A2000003 /* StatusBarController.swift */,
+				A2000024 /* UpdateController.swift */,
 				A2000004 /* HotkeyManager.swift */,
 				A2000005 /* WindowManager.swift */,
 				A2000006 /* ScreenManager.swift */,
@@ -154,6 +159,9 @@
 			dependencies = (
 			);
 			name = MacSnap;
+			packageProductDependencies = (
+				C2000001 /* Sparkle */,
+			);
 			productName = MacSnap;
 			productReference = A3000001 /* MacSnap.app */;
 			productType = "com.apple.product-type.application";
@@ -182,6 +190,9 @@
 				Base,
 			);
 			mainGroup = A5000001;
+			packageReferences = (
+				C3000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = A5000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -211,6 +222,7 @@
 				A1000002 /* AppDelegate.swift in Sources */,
 				A1000008 /* AppUtils.swift in Sources */,
 				A1000003 /* StatusBarController.swift in Sources */,
+				A1000022 /* UpdateController.swift in Sources */,
 				A1000004 /* HotkeyManager.swift in Sources */,
 				A1000005 /* WindowManager.swift in Sources */,
 				A1000006 /* ScreenManager.swift in Sources */,
@@ -427,6 +439,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C3000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C2000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C3000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A9000001 /* Project object */;
 }

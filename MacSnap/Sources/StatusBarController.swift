@@ -25,6 +25,16 @@ final class StatusBarController: NSObject {
     private var enableToggleItem: NSMenuItem?
     private var grantPermissionsItem: NSMenuItem?
     private var launchAtLoginItem: NSMenuItem?
+    private var checkForUpdatesItem: NSMenuItem?
+    
+    // MARK: - Version Info
+    
+    /// Returns the app version string (e.g., "Version 1.0.1 (2)")
+    private var appVersionString: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "MacSnap \(version) (\(build))"
+    }
     
     override init() {
         super.init()
@@ -123,6 +133,13 @@ final class StatusBarController: NSObject {
     private func createMenu() -> NSMenu {
         let menu = NSMenu()
         
+        // Version info header
+        let versionItem = NSMenuItem(title: appVersionString, action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Status Header - Permission status
         let hasPerms = WindowManager.shared.hasAccessibilityPermissions
         permissionStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -215,6 +232,19 @@ final class StatusBarController: NSObject {
         menu.addItem(launchAtLoginItem!)
         
         menu.addItem(NSMenuItem.separator())
+        
+        // Check for Updates (only in Release builds)
+        #if !DEBUG
+        checkForUpdatesItem = NSMenuItem(
+            title: "Check for Updates...",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        checkForUpdatesItem?.target = self
+        menu.addItem(checkForUpdatesItem!)
+        
+        menu.addItem(NSMenuItem.separator())
+        #endif
         
         // Show Welcome Screen
         let welcomeItem = NSMenuItem(
@@ -334,6 +364,10 @@ final class StatusBarController: NSObject {
     @objc private func toggleLaunchAtLogin() {
         AppUtils.toggleLaunchAtLogin()
         updateMenuItems()
+    }
+    
+    @objc private func checkForUpdates() {
+        UpdateController.shared.checkForUpdates(nil)
     }
     
     @objc private func restartApp() {

@@ -23,9 +23,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowManager = WindowManager.shared
     private let hotkeyManager = HotkeyManager.shared
     private let onboardingManager = OnboardingManager.shared
+    private let updateController = UpdateController.shared
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("AppDelegate: Starting up...")
+        
+        // Check for updates first (before first run experience)
+        // This runs in the background and will auto-update if available
+        debugLog("AppDelegate: Checking for updates in background...")
+        updateController.checkForUpdatesInBackground()
         
         // Check accessibility permissions
         let hasPerms = windowManager.hasAccessibilityPermissions
