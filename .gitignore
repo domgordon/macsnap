@@ -12,3 +12,12 @@ xcuserdata/
 
 # Debug logs
 *.log
+
+# Website (Next.js)
+website/node_modules/
+website/.next/
+website/out/
+website/.env*.local
+
+# DMG build artifacts
+*.dmg

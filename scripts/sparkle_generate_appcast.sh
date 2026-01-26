@@ -27,6 +27,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 APPCAST_OUTPUT="$PROJECT_ROOT/docs/appcast.xml"
+WEBSITE_APPCAST="$PROJECT_ROOT/website/public/appcast.xml"
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <releases-folder>"
@@ -93,16 +94,20 @@ mkdir -p "$(dirname "$APPCAST_OUTPUT")"
     --output "$APPCAST_OUTPUT" \
     "$RELEASES_DIR"
 
+# Copy to website folder for Vercel deployment
+cp "$APPCAST_OUTPUT" "$WEBSITE_APPCAST"
+
 echo ""
 echo "=== Done ==="
 echo ""
-echo "Appcast updated: $APPCAST_OUTPUT"
+echo "Appcast updated:"
+echo "  - $APPCAST_OUTPUT"
+echo "  - $WEBSITE_APPCAST"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated appcast.xml"
 echo "  2. Commit and push to GitHub"
 echo "  3. Create GitHub Release(s) and upload the ZIP files"
-echo "  4. Verify the appcast URL works: https://domgordon.github.io/macsnap/appcast.xml"
-echo ""
-echo "Note: Make sure your GitHub repo has GitHub Pages enabled and set to serve from /docs"
+echo "  4. Deploy to Vercel: cd website && npx vercel --prod"
+echo "  5. Verify the appcast URL works: https://macsnap.vercel.app/appcast.xml"
 echo ""

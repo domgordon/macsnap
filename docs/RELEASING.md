@@ -4,11 +4,12 @@
 
 1. Bump version in Xcode (MARKETING_VERSION + CURRENT_PROJECT_VERSION)
 2. Archive in Xcode → Distribute App → Developer ID → Upload (notarize) → Export
-3. Create ZIP of the exported .app
-4. Run `./scripts/sparkle_generate_appcast.sh ~/releases` to update appcast
-5. Commit appcast.xml changes and push
-6. Create GitHub Release, upload ZIP
-7. Enable GitHub Pages if first release (Settings → Pages → Source: `/docs`)
+3. Create ZIP of the exported .app (for Sparkle updates)
+4. Create DMG of the exported .app (for website downloads)
+5. Run `./scripts/sparkle_generate_appcast.sh ~/releases` to update appcast
+6. Commit appcast.xml changes and push
+7. Create GitHub Release, upload both ZIP and DMG
+8. Deploy website to Vercel: `cd website && npx vercel --prod`
 
 ---
 
@@ -35,14 +36,15 @@ This will:
 
 Commit this change.
 
-### 2. Enable GitHub Pages
+### 2. Vercel Deployment
 
-1. Go to your repo: https://github.com/domgordon/macsnap/settings/pages
-2. Under "Source", select **Deploy from a branch**
-3. Select branch: `main`, folder: `/docs`
-4. Save
+The website (including appcast.xml) is deployed to Vercel automatically when you push to main, or manually:
 
-Your appcast will be available at: `https://domgordon.github.io/macsnap/appcast.xml`
+```bash
+cd website && npx vercel --prod
+```
+
+Your appcast is available at: `https://macsnap.vercel.app/appcast.xml`
 
 ### 3. Verify Code Signing
 
@@ -78,7 +80,7 @@ Or edit directly in `MacSnap.xcodeproj/project.pbxproj`.
 8. Once notarized, click **Export**
 9. Choose export location (e.g., `~/Desktop/MacSnap-Export`)
 
-### Step 3: Create Release ZIP
+### Step 3: Create Release ZIP (for Sparkle updates)
 
 ```bash
 # Navigate to export folder
@@ -90,9 +92,33 @@ ditto -c -k --keepParent MacSnap.app MacSnap-1.0.2.zip
 
 **Important**: Use `ditto` not `zip` to preserve code signatures and extended attributes.
 
-### Step 4: Organize Release Artifacts
+### Step 4: Create DMG Installer (for website downloads)
 
-Create a releases folder and add your ZIP:
+The DMG provides the familiar "drag to Applications" experience for new users.
+
+**One-time setup:**
+```bash
+brew install create-dmg
+```
+
+**Create the DMG:**
+```bash
+./scripts/create_dmg.sh ~/Desktop/MacSnap-Export/MacSnap.app MacSnap-1.0.2
+```
+
+This creates `MacSnap-1.0.2.dmg` with:
+- MacSnap.app icon on the left
+- Applications folder shortcut on the right
+- Clean, professional appearance
+
+**Note**: The landing page links to `MacSnap.dmg` (without version number), so also create:
+```bash
+./scripts/create_dmg.sh ~/Desktop/MacSnap-Export/MacSnap.app MacSnap
+```
+
+### Step 5: Organize Release Artifacts
+
+Create a releases folder and add your ZIP (DMG stays separate):
 
 ```bash
 mkdir -p ~/macsnap-releases
@@ -101,7 +127,7 @@ mv ~/Desktop/MacSnap-Export/MacSnap-1.0.2.zip ~/macsnap-releases/
 
 Name format: `MacSnap-{version}.zip` (e.g., `MacSnap-1.0.2.zip`)
 
-### Step 5: Generate Appcast
+### Step 6: Generate Appcast
 
 ```bash
 ./scripts/sparkle_generate_appcast.sh ~/macsnap-releases
@@ -113,7 +139,7 @@ This will:
 - Sign with your EdDSA key (from Keychain)
 - Update `docs/appcast.xml`
 
-### Step 6: Review and Commit
+### Step 7: Review and Commit
 
 Review the updated appcast:
 
@@ -129,18 +155,20 @@ git commit -m "Release MacSnap 1.0.2"
 git push
 ```
 
-### Step 7: Create GitHub Release
+### Step 8: Create GitHub Release
 
 1. Go to https://github.com/domgordon/macsnap/releases/new
 2. Create tag: `v1.0.2` (match your version)
 3. Title: `MacSnap 1.0.2`
 4. Description: Release notes (what changed)
-5. Upload the ZIP file: `MacSnap-1.0.2.zip`
+5. Upload both files:
+   - `MacSnap-1.0.2.zip` (for Sparkle updates)
+   - `MacSnap.dmg` (for website downloads - rename to just `MacSnap.dmg`)
 6. Publish release
 
-### Step 8: Verify
+### Step 9: Verify
 
-1. Check appcast URL loads: https://domgordon.github.io/macsnap/appcast.xml
+1. Check appcast URL loads: https://macsnap.vercel.app/appcast.xml
 2. Verify the download URL in appcast matches your GitHub Release asset URL
 3. Test update on a machine with an older version installed
 
@@ -189,8 +217,11 @@ Ensure you're using the same key that generated `SUPublicEDKey` in Info.plist:
 | File | Format | Example |
 |------|--------|---------|
 | ZIP artifact | `MacSnap-{version}.zip` | `MacSnap-1.0.2.zip` |
+| DMG installer | `MacSnap.dmg` | `MacSnap.dmg` |
 | Git tag | `v{version}` | `v1.0.2` |
 | GitHub Release | `MacSnap {version}` | `MacSnap 1.0.2` |
+
+**Note**: The DMG uses a versionless name (`MacSnap.dmg`) so the landing page download link stays constant across releases.
 
 ---
 
@@ -225,6 +256,12 @@ The `generate_appcast` script uses `--download-url-prefix` to construct these UR
 ```bash
 # One-time: Generate signing keys
 ./scripts/sparkle_keygen.sh
+
+# One-time: Install create-dmg
+brew install create-dmg
+
+# Create DMG installer (for website downloads)
+./scripts/create_dmg.sh ~/Desktop/MacSnap-Export/MacSnap.app MacSnap
 
 # Sign a single artifact (if needed manually)
 ./scripts/sparkle_sign.sh ~/Desktop/MacSnap-1.0.2.zip

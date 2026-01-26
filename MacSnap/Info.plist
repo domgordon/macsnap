@@ -33,7 +33,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUFeedURL</key>
-	<string>https://domgordon.github.io/macsnap/appcast.xml</string>
+	<string>https://macsnap.vercel.app/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>/AyY8Mc6LAH/vEhiiHc8V9Vj8RYnw+kAYI+X/bsJk2w=</string>
 </dict>
