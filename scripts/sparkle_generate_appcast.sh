@@ -88,14 +88,14 @@ mkdir -p "$(dirname "$APPCAST_OUTPUT")"
 # - Read ZIP files from the releases folder
 # - Extract version info from the app bundle inside each ZIP
 # - Sign each release with your EdDSA key from Keychain
-# - Generate/update the appcast.xml
+# - Generate/update the appcast.xml in the releases folder
 "$GENERATE_APPCAST" \
     --download-url-prefix "https://github.com/domgordon/macsnap/releases/download/" \
-    --output "$APPCAST_OUTPUT" \
     "$RELEASES_DIR"
 
-# Copy to website folder for Vercel deployment
-cp "$APPCAST_OUTPUT" "$WEBSITE_APPCAST"
+# Copy generated appcast to docs and website folders
+cp "$RELEASES_DIR/appcast.xml" "$APPCAST_OUTPUT"
+cp "$RELEASES_DIR/appcast.xml" "$WEBSITE_APPCAST"
 
 echo ""
 echo "=== Done ==="
