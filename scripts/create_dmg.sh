@@ -43,7 +43,8 @@ fi
 
 APP_PATH="$1"
 OUTPUT_NAME="${2:-MacSnap}"
-OUTPUT_DMG="${OUTPUT_NAME}.dmg"
+OUTPUT_DIR="${3:-.}"
+OUTPUT_DMG="$OUTPUT_DIR/${OUTPUT_NAME}.dmg"
 
 # Verify app exists
 if [ ! -d "$APP_PATH" ]; then
