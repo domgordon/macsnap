@@ -225,10 +225,9 @@ EXPORTEOF
     ditto -c -k --keepParent "$EXPORT_PATH/$PROJECT_NAME.app" "$RELEASES_DIR/$zip_name"
     log_success "Created $zip_name"
     
-    # DMG for website
+    # DMG for website (kept separate from releases folder)
     local dmg_name="$PROJECT_NAME.dmg"
     "$SCRIPT_DIR/create_dmg.sh" "$EXPORT_PATH/$PROJECT_NAME.app" "$PROJECT_NAME" "$BUILD_DIR"
-    mv "$BUILD_DIR/$dmg_name" "$RELEASES_DIR/$dmg_name"
     log_success "Created $dmg_name"
     
     # Step 6: Update appcast
@@ -258,7 +257,7 @@ EXPORTEOF
         --title "MacSnap $new_version" \
         --notes "MacSnap version $new_version" \
         "$RELEASES_DIR/$zip_name" \
-        "$RELEASES_DIR/$dmg_name"
+        "$BUILD_DIR/$dmg_name"
     log_success "GitHub Release created"
     
     echo ""

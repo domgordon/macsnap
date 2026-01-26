@@ -89,9 +89,14 @@ mkdir -p "$(dirname "$APPCAST_OUTPUT")"
 # - Extract version info from the app bundle inside each ZIP
 # - Sign each release with your EdDSA key from Keychain
 # - Generate/update the appcast.xml in the releases folder
+# Generate the appcast (with a placeholder prefix)
 "$GENERATE_APPCAST" \
     --download-url-prefix "https://github.com/domgordon/macsnap/releases/download/" \
     "$RELEASES_DIR"
+
+# Fix download URLs to include version tag (v1.0.1/MacSnap-1.0.1.zip instead of MacSnap-1.0.1.zip)
+# GitHub releases use format: /releases/download/v{version}/filename.zip
+sed -i '' 's|download/MacSnap-\([0-9.]*\)\.zip|download/v\1/MacSnap-\1.zip|g' "$RELEASES_DIR/appcast.xml"
 
 # Copy generated appcast to docs and website folders
 cp "$RELEASES_DIR/appcast.xml" "$APPCAST_OUTPUT"
