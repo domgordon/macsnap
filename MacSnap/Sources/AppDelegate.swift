@@ -28,36 +28,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("AppDelegate: Starting up...")
         
-        // Check for updates first (before first run experience)
-        // This runs in the background and will auto-update if available
+        // Check for updates (doesn't require permissions)
         debugLog("AppDelegate: Checking for updates in background...")
         updateController.checkForUpdatesInBackground()
         
-        // Check accessibility permissions
-        let hasPerms = windowManager.hasAccessibilityPermissions
-        debugLog("AppDelegate: Accessibility permissions = \(hasPerms)")
-        
-        // Initialize status bar first (so user can see the app with loading state)
+        // Initialize status bar (doesn't require permissions)
         debugLog("AppDelegate: Creating StatusBarController...")
         statusBarController = StatusBarController()
         
-        // Auto-enable snapping (will work if permissions are granted)
-        debugLog("AppDelegate: Auto-enabling snapping...")
-        hotkeyManager.start()
-        
-        // Mark initialization complete - stops the loading animation
-        statusBarController?.markReady()
-        
-        // Show onboarding on first launch
+        // On first launch: show onboarding FIRST, before requesting any permissions
+        // This ensures users understand WHY they need to grant accessibility access
         if onboardingManager.isFirstLaunch {
-            debugLog("AppDelegate: First launch detected, showing onboarding...")
+            debugLog("AppDelegate: First launch - showing onboarding before requesting permissions...")
+            statusBarController?.markReady()
             showOnboarding()
-        } else if !hasPerms {
-            // Not first launch but missing permissions - prompt quietly
+            // Don't start hotkey manager yet - will happen after restart when permissions granted
+            return
+        }
+        
+        // Not first launch: check permissions and start normally
+        let hasPerms = windowManager.hasAccessibilityPermissions
+        debugLog("AppDelegate: Accessibility permissions = \(hasPerms)")
+        
+        if hasPerms {
+            debugLog("AppDelegate: Starting hotkey manager...")
+            hotkeyManager.start()
+        } else {
             debugLog("AppDelegate: Requesting accessibility permissions...")
             windowManager.requestAccessibilityPermissions()
         }
         
+        statusBarController?.markReady()
         debugLog("AppDelegate: Ready! Snapping is \(hotkeyManager.isEnabled ? "enabled" : "disabled")")
     }
     
