@@ -77,13 +77,12 @@ export default function Home() {
             <div className="grid sm:grid-cols-2 gap-4 text-sm">
               <ShortcutRow keys={['⌃', '⌥', '←']} action="Snap left half" />
               <ShortcutRow keys={['⌃', '⌥', '→']} action="Snap right half" />
-              <ShortcutRow keys={['⌃', '⌥', '↑']} action="Snap top half" />
-              <ShortcutRow keys={['⌃', '⌥', '↓']} action="Snap bottom half" />
-              <ShortcutRow keys={['⌃', '⌥', '↵']} action="Maximize window" />
-              <div className="flex items-center justify-end py-2 px-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <span className="text-gray-600 dark:text-gray-400">+ more quarter & combo shortcuts</span>
-              </div>
+              <ShortcutRow keys={['⌃', '⌥', '↑']} action="Maximize" />
+              <ShortcutRow keys={['⌃', '⌥', '↓']} action="Minimize" />
             </div>
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
+              + quarter screen support and more combo shortcuts
+            </p>
           </div>
         </div>
       </section>
