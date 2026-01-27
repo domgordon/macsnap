@@ -6,13 +6,18 @@ final class SnapAssistWindow: NSWindow {
     
     // MARK: - Properties
     
-    private let windows: [WindowInfo]
+    /// Windows available for selection (internal for keyboard extension)
+    let windows: [WindowInfo]
     private let allPositions: [SnapPosition]
     private let activePosition: SnapPosition
     private let targetScreen: NSScreen
     private var thumbnailViews: [WindowThumbnailView] = []
-    private var selectedIndex: Int = 0
-    private var zoneViews: [NSView] = []
+    
+    /// Currently selected index (internal for keyboard extension)
+    var selectedIndex: Int = 0
+    
+    /// Zone views for layout calculation (internal for keyboard extension)
+    private(set) var zoneViews: [NSView] = []
     
     var onWindowSelected: ((WindowInfo) -> Void)?
     var onDismiss: (() -> Void)?
@@ -239,9 +244,10 @@ final class SnapAssistWindow: NSWindow {
         }
     }
     
-    // MARK: - Selection
+    // MARK: - Selection (internal for keyboard extension)
     
-    private func updateSelection() {
+    /// Update visual selection state of thumbnails
+    func updateSelection() {
         for (index, view) in thumbnailViews.enumerated() {
             view.isSelected = (index == selectedIndex)
         }
@@ -255,7 +261,8 @@ final class SnapAssistWindow: NSWindow {
         }
     }
     
-    private func selectWindow(_ windowInfo: WindowInfo) {
+    /// Select a window and trigger the callback
+    func selectWindow(_ windowInfo: WindowInfo) {
         // Clear handlers to prevent re-entry during transition
         debugLog("SnapAssistWindow: selectWindow called, clearing handlers")
         onDismiss = nil
@@ -290,64 +297,7 @@ final class SnapAssistWindow: NSWindow {
     }
     
     override func keyDown(with event: NSEvent) {
-        guard !windows.isEmpty else {
-            dismissPicker()
-            return
-        }
-        
-        switch event.keyCode {
-        case 53:  // Escape
-            dismissPicker()
-            
-        case 36, 76:  // Return, Enter
-            if selectedIndex < windows.count {
-                let selected = windows[selectedIndex]
-                debugLog("SnapAssistWindow: Enter pressed, selectedIndex=\(selectedIndex), window='\(selected.title)' at \(selected.frame)")
-                selectWindow(selected)
-            }
-            
-        case 123:  // Left arrow
-            moveSelection(by: -1)
-            
-        case 124:  // Right arrow
-            moveSelection(by: 1)
-            
-        case 125:  // Down arrow
-            moveSelectionVertical(by: 1)
-            
-        case 126:  // Up arrow
-            moveSelectionVertical(by: -1)
-            
-        case 48:  // Tab
-            moveSelection(by: event.modifierFlags.contains(.shift) ? -1 : 1)
-            
-        default:
-            break
-        }
-    }
-    
-    private func moveSelection(by delta: Int) {
-        guard !windows.isEmpty else { return }
-        selectedIndex = (selectedIndex + delta + windows.count) % windows.count
-        updateSelection()
-    }
-    
-    private func moveSelectionVertical(by rowDelta: Int) {
-        guard !windows.isEmpty else { return }
-        guard let firstZone = zoneViews.first else { return }
-        
-        // Must match setupThumbnails padding calculation
-        let totalPadding: CGFloat = (10 + 32) * 2  // zonePadding + contentMargin, both sides
-        let availableWidth = firstZone.bounds.width - totalPadding
-        let thumbnailWidth = WindowThumbnailView.totalSize.width
-        let spacing: CGFloat = 12
-        let columns = max(1, Int((availableWidth + spacing) / (thumbnailWidth + spacing)))
-        
-        let newIndex = selectedIndex + (rowDelta * columns)
-        if newIndex >= 0 && newIndex < windows.count {
-            selectedIndex = newIndex
-            updateSelection()
-        }
+        handleKeyDown(event)
     }
     
     // MARK: - Mouse Handling

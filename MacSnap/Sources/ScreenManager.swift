@@ -6,11 +6,37 @@ final class ScreenManager {
     
     static let shared = ScreenManager()
     
-    private init() {}
+    // MARK: - Cached Screen Data
+    
+    private var _sortedScreens: [NSScreen]?
+    
+    private init() {
+        // Subscribe to screen configuration changes
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.invalidateScreenCache()
+        }
+    }
+    
+    /// Invalidate cached screen data when configuration changes
+    private func invalidateScreenCache() {
+        _sortedScreens = nil
+        CoordinateConverter.invalidateCache()
+        debugLog("ScreenManager: Screen cache invalidated")
+    }
     
     /// Get all available screens sorted by their x position (left to right)
+    /// Cached for performance; invalidated on screen configuration changes
     var sortedScreens: [NSScreen] {
-        NSScreen.screens.sorted { $0.frame.origin.x < $1.frame.origin.x }
+        if let cached = _sortedScreens {
+            return cached
+        }
+        let sorted = NSScreen.screens.sorted { $0.frame.origin.x < $1.frame.origin.x }
+        _sortedScreens = sorted
+        return sorted
     }
     
     /// Get the screen containing the given point

@@ -1,7 +1,8 @@
 import AppKit
 
-/// Simple file logger for debugging
+/// Simple file logger for debugging (only active in DEBUG builds)
 func debugLog(_ message: String) {
+    #if DEBUG
     let logFile = "/tmp/macsnap_debug.log"
     let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
     let line = "[\(timestamp)] \(message)\n"
@@ -14,6 +15,7 @@ func debugLog(_ message: String) {
         // Create file if it doesn't exist
         try? line.write(toFile: logFile, atomically: true, encoding: .utf8)
     }
+    #endif
 }
 
 /// Application delegate handling lifecycle and initialization

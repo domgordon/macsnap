@@ -194,7 +194,7 @@ final class StatusBarController: NSObject {
         
         // Shortcuts reference submenu
         let shortcutsItem = NSMenuItem(title: "Keyboard Shortcuts", action: nil, keyEquivalent: "")
-        shortcutsItem.submenu = createShortcutsMenu()
+        shortcutsItem.submenu = KeyboardShortcuts.createMenu()
         menu.addItem(shortcutsItem)
         
         // Settings submenu
@@ -263,38 +263,6 @@ final class StatusBarController: NSObject {
         )
         accessItem.target = self
         menu.addItem(accessItem)
-        
-        return menu
-    }
-    
-    private func createShortcutsMenu() -> NSMenu {
-        let menu = NSMenu()
-        
-        let shortcuts: [(String, String)] = [
-            ("Left Half", "⌃ ⌥ ←"),
-            ("Right Half", "⌃ ⌥ →"),
-            ("Top Half", "⌃ ⌥ ↑"),
-            ("Bottom Half", "⌃ ⌥ ↓"),
-            ("Maximize", "⌃ ⌥ ↵"),
-            ("", ""),  // Separator placeholder
-            ("Top Left Quarter", "⌃ ⌥ ⌘ ←"),
-            ("Top Right Quarter", "⌃ ⌥ ⌘ →"),
-            ("Bottom Left Quarter", "⌃ ⌥ ⌘ ⇧ ←"),
-            ("Bottom Right Quarter", "⌃ ⌥ ⌘ ⇧ →"),
-            ("", ""),  // Separator placeholder
-            ("Move to Left Monitor", "⌃ ⌥ ⇧ ←"),
-            ("Move to Right Monitor", "⌃ ⌥ ⇧ →"),
-        ]
-        
-        for (title, shortcut) in shortcuts {
-            if title.isEmpty {
-                menu.addItem(NSMenuItem.separator())
-            } else {
-                let item = NSMenuItem(title: "\(title)  \(shortcut)", action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                menu.addItem(item)
-            }
-        }
         
         return menu
     }

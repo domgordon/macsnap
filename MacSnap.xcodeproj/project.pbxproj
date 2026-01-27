@@ -29,6 +29,10 @@
 		A1000020 /* SnapStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000022 /* SnapStateMachine.swift */; };
 		A1000021 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000023 /* Assets.xcassets */; };
 		A1000022 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000024 /* UpdateController.swift */; };
+		A1000023 /* AXHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000025 /* AXHelpers.swift */; };
+		A1000024 /* WindowDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000026 /* WindowDiscovery.swift */; };
+		A1000025 /* SnapAssistWindow+Keyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000027 /* SnapAssistWindow+Keyboard.swift */; };
+		A1000026 /* StatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000028 /* StatusBarMenu.swift */; };
 		C1000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C2000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +61,10 @@
 		A2000022 /* SnapStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateMachine.swift; sourceTree = "<group>"; };
 		A2000023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000024 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		A2000025 /* AXHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXHelpers.swift; sourceTree = "<group>"; };
+		A2000026 /* WindowDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDiscovery.swift; sourceTree = "<group>"; };
+		A2000027 /* SnapAssistWindow+Keyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SnapAssistWindow+Keyboard.swift"; sourceTree = "<group>"; };
+		A2000028 /* StatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarMenu.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -105,7 +113,6 @@
 				A2000001 /* MacSnapApp.swift */,
 				A2000002 /* AppDelegate.swift */,
 				A2000010 /* AppUtils.swift */,
-				A2000003 /* StatusBarController.swift */,
 				A2000024 /* UpdateController.swift */,
 				A2000004 /* HotkeyManager.swift */,
 				A2000005 /* WindowManager.swift */,
@@ -114,10 +121,9 @@
 				A2000022 /* SnapStateMachine.swift */,
 				A2000017 /* ScreenLayout.swift */,
 				A2000011 /* OnboardingManager.swift */,
-				A2000012 /* OnboardingView.swift */,
-				A2000013 /* OnboardingWindowController.swift */,
 				A5000006 /* Core */,
 				A5000005 /* SnapAssist */,
+				A5000007 /* UI */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -127,6 +133,7 @@
 			children = (
 				A2000014 /* SnapAssistController.swift */,
 				A2000015 /* SnapAssistWindow.swift */,
+				A2000027 /* SnapAssistWindow+Keyboard.swift */,
 				A2000016 /* WindowThumbnailView.swift */,
 			);
 			path = SnapAssist;
@@ -135,12 +142,25 @@
 		A5000006 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				A2000025 /* AXHelpers.swift */,
 				A2000018 /* CoordinateConverter.swift */,
 				A2000019 /* FrameMatcher.swift */,
-				A2000020 /* WindowListCache.swift */,
 				A2000021 /* WindowAnimator.swift */,
+				A2000026 /* WindowDiscovery.swift */,
+				A2000020 /* WindowListCache.swift */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		A5000007 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A2000012 /* OnboardingView.swift */,
+				A2000013 /* OnboardingWindowController.swift */,
+				A2000003 /* StatusBarController.swift */,
+				A2000028 /* StatusBarMenu.swift */,
+			);
+			path = UI;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -222,6 +242,7 @@
 				A1000002 /* AppDelegate.swift in Sources */,
 				A1000008 /* AppUtils.swift in Sources */,
 				A1000003 /* StatusBarController.swift in Sources */,
+				A1000026 /* StatusBarMenu.swift in Sources */,
 				A1000022 /* UpdateController.swift in Sources */,
 				A1000004 /* HotkeyManager.swift in Sources */,
 				A1000005 /* WindowManager.swift in Sources */,
@@ -233,12 +254,15 @@
 				A1000011 /* OnboardingWindowController.swift in Sources */,
 				A1000012 /* SnapAssistController.swift in Sources */,
 				A1000013 /* SnapAssistWindow.swift in Sources */,
+				A1000025 /* SnapAssistWindow+Keyboard.swift in Sources */,
 				A1000014 /* WindowThumbnailView.swift in Sources */,
 				A1000015 /* ScreenLayout.swift in Sources */,
+				A1000023 /* AXHelpers.swift in Sources */,
 				A1000016 /* CoordinateConverter.swift in Sources */,
 				A1000017 /* FrameMatcher.swift in Sources */,
-				A1000018 /* WindowListCache.swift in Sources */,
 				A1000019 /* WindowAnimator.swift in Sources */,
+				A1000024 /* WindowDiscovery.swift in Sources */,
+				A1000018 /* WindowListCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
