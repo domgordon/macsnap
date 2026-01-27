@@ -68,6 +68,12 @@ struct ScreenLayout {
     func positionsNeedingFill(after snappedPosition: SnapPosition) -> [SnapPosition] {
         // Handle half snaps: check if opposite half should be filled as a whole
         if snappedPosition.isHalf, let oppositeHalf = snappedPosition.oppositeHalf {
+            // If opposite half is already filled, no positions need filling
+            if isHalfFilled(oppositeHalf) {
+                debugLog("ScreenLayout: Opposite half already filled, no picker needed")
+                return []
+            }
+            
             // If opposite half is completely empty, return it as a single position
             if isHalfCompletelyEmpty(oppositeHalf) {
                 debugLog("ScreenLayout: After \(snappedPosition.displayName), opposite half is empty: [\(oppositeHalf.displayName)]")
