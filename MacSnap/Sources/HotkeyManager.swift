@@ -179,32 +179,40 @@ final class HotkeyManager {
     
     /// Perform the determined snap action
     private func performAction(_ action: SnapAction) {
-        // Dismiss any showing picker first - this restores focus to the previous app
-        // so subsequent window operations work on the correct window
-        if SnapAssistController.shared.isShowingAssist {
-            SnapAssistController.shared.dismiss()
-        }
-        
         switch action {
         case .snap(let position):
+            // Dismiss any showing picker first
+            if SnapAssistController.shared.isShowingAssist {
+                SnapAssistController.shared.dismiss()
+            }
             log("Snapping to \(position.displayName)")
             windowManager.snapFrontmostWindow(to: position)
             
         case .smartDirection(let direction):
+            // Detect current position BEFORE dismissing picker to avoid async focus issues
             let currentPosition = windowManager.detectCurrentSnapPosition()
             let result = SnapStateMachine.nextPosition(from: currentPosition, direction: direction)
             
             switch result {
             case .snap(let targetPosition):
+                // Dismiss picker before snapping
+                if SnapAssistController.shared.isShowingAssist {
+                    SnapAssistController.shared.dismiss()
+                }
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
                 windowManager.snapFrontmostWindow(to: targetPosition)
                 
             case .unsnapToMiddle:
+                // unsnapToMiddle() handles picker dismissal internally
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → middle")
                 windowManager.unsnapToMiddle()
             }
             
         case .moveToMonitor(let direction):
+            // Dismiss any showing picker first
+            if SnapAssistController.shared.isShowingAssist {
+                SnapAssistController.shared.dismiss()
+            }
             log("Moving to \(direction) monitor")
             windowManager.moveFrontmostWindow(to: direction)
         }

@@ -220,7 +220,7 @@ final class SnapAssistWindow: NSWindow {
     
     private func animateIn() {
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.08
+            context.duration = AnimationConfig.fadeDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             self.animator().alphaValue = 1.0
         }) {
@@ -231,7 +231,7 @@ final class SnapAssistWindow: NSWindow {
     
     private func animateOut(completion: @escaping () -> Void) {
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.1
+            context.duration = AnimationConfig.fadeDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             self.animator().alphaValue = 0
         }) {
@@ -256,21 +256,19 @@ final class SnapAssistWindow: NSWindow {
     }
     
     private func selectWindow(_ windowInfo: WindowInfo) {
-        // Clear dismiss handler before animation to prevent resignKey from triggering dismiss
-        // during the transition to the next picker
-        debugLog("SnapAssistWindow: selectWindow called, clearing onDismiss")
+        // Clear handlers to prevent re-entry during transition
+        debugLog("SnapAssistWindow: selectWindow called, clearing handlers")
         onDismiss = nil
-        
-        // Capture callback before animation (in case it gets cleared)
         let callback = onWindowSelected
-        onWindowSelected = nil  // Prevent double-calls
+        onWindowSelected = nil
         
-        animateOut { [weak self] in
-            debugLog("SnapAssistWindow: animateOut complete, calling callback")
-            // Call the callback - controller handles window lifecycle (including closing)
-            callback?(windowInfo)
-            // Don't call close() here - controller will close this window during transition
-        }
+        // Start window snap IMMEDIATELY (parallel with fade-out for snappy feel)
+        debugLog("SnapAssistWindow: triggering callback immediately (parallel)")
+        callback?(windowInfo)
+        
+        // Fade out picker UI in parallel - no completion action needed
+        // Controller handles window lifecycle during transition
+        animateOut { }
     }
     
     func dismissPicker() {

@@ -200,9 +200,8 @@ final class SnapAssistController {
         // Show and activate the window
         assistWindow?.makeKeyAndOrderFront(nil)
         
-        // Ensure window captures keyboard focus (slightly longer delay for transitions)
-        let focusDelay: TimeInterval = isTransition ? 0.1 : 0.05
-        DispatchQueue.main.asyncAfter(deadline: .now() + focusDelay) { [weak self] in
+        // Ensure window captures keyboard focus after brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConfig.focusDelay) { [weak self] in
             if isTransition {
                 self?.assistWindow?.ignoreResignEvents = false
                 debugLog("SnapAssist: Transition picker ready (resign events re-enabled)")

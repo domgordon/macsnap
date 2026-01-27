@@ -2,6 +2,21 @@ import AppKit
 import ApplicationServices
 import QuartzCore
 
+// MARK: - Animation Constants (Single Source of Truth)
+
+/// Centralized animation timing constants for consistent, snappy feel across the app.
+/// All animation durations should reference these values to maintain consistency.
+enum AnimationConfig {
+    /// Duration for window snap/move animations (50ms)
+    static let snapDuration: TimeInterval = 0.05
+    
+    /// Duration for UI fade in/out animations (50ms)
+    static let fadeDuration: TimeInterval = 0.05
+    
+    /// Delay before keyboard focus is captured after showing picker (30ms)
+    static let focusDelay: TimeInterval = 0.03
+}
+
 /// Frame-synchronized window animation using CVDisplayLink.
 /// Provides smooth, jitter-free animations synced to the display refresh rate.
 final class WindowAnimator {
@@ -38,8 +53,8 @@ final class WindowAnimator {
     ///   - window: The AXUIElement window to animate
     ///   - from: Starting frame in NSScreen coordinates
     ///   - to: Target frame in NSScreen coordinates
-    ///   - duration: Animation duration (default 80ms for snappy feel)
-    func animate(window: AXUIElement, from: CGRect, to: CGRect, duration: TimeInterval = 0.08) {
+    ///   - duration: Animation duration (defaults to AnimationConfig.snapDuration)
+    func animate(window: AXUIElement, from: CGRect, to: CGRect, duration: TimeInterval = AnimationConfig.snapDuration) {
         lock.lock()
         defer { lock.unlock() }
         
