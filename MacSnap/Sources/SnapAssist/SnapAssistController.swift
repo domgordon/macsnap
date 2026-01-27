@@ -29,6 +29,9 @@ final class SnapAssistController {
     /// The app that was frontmost before showing the picker (for focus restoration on dismiss)
     private var previousApp: NSRunningApplication?
     
+    /// The position the original window was snapped to (for state machine when picker is showing)
+    private(set) var originalSnappedPosition: SnapPosition?
+    
     /// Whether the snap assist overlay is currently showing (modal lock state)
     var isShowingAssist: Bool {
         assistWindow != nil
@@ -67,6 +70,9 @@ final class SnapAssistController {
             debugLog("SnapAssist: Position \(snappedPosition) doesn't trigger picker")
             return
         }
+        
+        // Store the snapped position so we can use it for state machine when picker is showing
+        self.originalSnappedPosition = snappedPosition
         
         debugLog("SnapAssist: Scheduling assist after \(snappedPosition) in \(assistDelay)s")
         
@@ -117,6 +123,7 @@ final class SnapAssistController {
         currentScreen = nil
         excludeWindowID = nil
         previousApp = nil
+        originalSnappedPosition = nil
         debugLog("SnapAssist: Dismissed (window closed, state cleared)")
     }
     

@@ -8,15 +8,25 @@ enum SnapDirection {
     case right
 }
 
-/// Result of a snap transition - either a new position or unsnap to middle
+/// Result of a snap transition
 enum SnapTransitionResult {
     case snap(SnapPosition)
     case unsnapToMiddle
+    case minimize
 }
 
 /// Data-driven snap position transition logic.
 /// Replaces verbose switch statements with a lookup table approach.
 enum SnapStateMachine {
+    
+    // MARK: - Down Action Type
+    
+    /// Actions for down direction (needs three states: snap, unsnap, minimize)
+    private enum DownAction {
+        case snap(SnapPosition)
+        case unsnap
+        case minimize
+    }
     
     // MARK: - Transition Tables
     
@@ -43,25 +53,24 @@ enum SnapStateMachine {
     ]
     
     /// Transitions for the DOWN direction
-    /// nil value means "unsnap to middle"
-    private static let downTransitions: [SnapPosition?: SnapPosition?] = [
-        // Unsnapped → Bottom Half
-        nil: .bottomHalf,
+    private static let downTransitions: [SnapPosition?: DownAction] = [
+        // Unsnapped (middle) → Minimize
+        nil: .minimize,
         
         // Center positions → unsnap to middle
-        .maximize: nil,
-        .topHalf: nil,
-        .bottomHalf: nil,
+        .maximize: .unsnap,
+        .topHalf: .unsnap,
+        .bottomHalf: .unsnap,
         
         // Left side: descend the left edge
-        .leftHalf: .bottomLeftQuarter,
-        .topLeftQuarter: .leftHalf,
-        .bottomLeftQuarter: .bottomHalf,
+        .leftHalf: .snap(.bottomLeftQuarter),
+        .topLeftQuarter: .snap(.leftHalf),
+        .bottomLeftQuarter: .minimize,
         
         // Right side: descend the right edge
-        .rightHalf: .bottomRightQuarter,
-        .topRightQuarter: .rightHalf,
-        .bottomRightQuarter: .bottomHalf
+        .rightHalf: .snap(.bottomRightQuarter),
+        .topRightQuarter: .snap(.rightHalf),
+        .bottomRightQuarter: .minimize
     ]
     
     /// Transitions for the LEFT direction
@@ -74,9 +83,9 @@ enum SnapStateMachine {
         .topHalf: .topLeftQuarter,
         .bottomHalf: .bottomLeftQuarter,
         
-        // Right quarters → Left quarters (horizontal movement)
-        .topRightQuarter: .topLeftQuarter,
-        .bottomRightQuarter: .bottomLeftQuarter,
+        // Right quarters → horizontal halves first (then to left quarters)
+        .topRightQuarter: .topHalf,
+        .bottomRightQuarter: .bottomHalf,
         
         // Right half → unsnap to middle first
         .rightHalf: nil,
@@ -98,9 +107,9 @@ enum SnapStateMachine {
         .topHalf: .topRightQuarter,
         .bottomHalf: .bottomRightQuarter,
         
-        // Left quarters → Right quarters (horizontal movement)
-        .topLeftQuarter: .topRightQuarter,
-        .bottomLeftQuarter: .bottomRightQuarter,
+        // Left quarters → horizontal halves first (then to right quarters)
+        .topLeftQuarter: .topHalf,
+        .bottomLeftQuarter: .bottomHalf,
         
         // Left half → unsnap to middle first
         .leftHalf: nil,
@@ -118,24 +127,29 @@ enum SnapStateMachine {
     /// - Parameters:
     ///   - current: The current snap position (nil if unsnapped)
     ///   - direction: The direction of the key press
-    /// - Returns: The result - either a new snap position or unsnap to middle
+    /// - Returns: The result - either a new snap position, unsnap to middle, or minimize
     static func nextPosition(from current: SnapPosition?, direction: SnapDirection) -> SnapTransitionResult {
         switch direction {
         case .up:
-            // Up always has a target position (never unsnaps)
+            // Up always has a target position (never unsnaps or minimizes)
             if let target = upTransitions[current] {
                 return .snap(target)
             }
             return .snap(.maximize)
             
         case .down:
-            if let result = downTransitions[current] {
-                if let target = result {
+            if let action = downTransitions[current] {
+                switch action {
+                case .snap(let target):
                     return .snap(target)
+                case .unsnap:
+                    return .unsnapToMiddle
+                case .minimize:
+                    return .minimize
                 }
-                return .unsnapToMiddle
             }
-            return .snap(.bottomHalf)
+            // Fallback (shouldn't happen with complete table)
+            return .minimize
             
         case .left:
             if let result = leftTransitions[current] {

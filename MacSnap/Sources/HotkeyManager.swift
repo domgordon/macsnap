@@ -189,8 +189,16 @@ final class HotkeyManager {
             windowManager.snapFrontmostWindow(to: position)
             
         case .smartDirection(let direction):
-            // Detect current position BEFORE dismissing picker to avoid async focus issues
-            let currentPosition = windowManager.detectCurrentSnapPosition()
+            // When picker is showing, use the stored snapped position (can't detect - MacSnap is frontmost)
+            // Otherwise detect the current position
+            let currentPosition: SnapPosition?
+            if SnapAssistController.shared.isShowingAssist {
+                currentPosition = SnapAssistController.shared.originalSnappedPosition
+                log("Using stored position (picker showing): \(currentPosition?.displayName ?? "nil")")
+            } else {
+                currentPosition = windowManager.detectCurrentSnapPosition()
+            }
+            
             let result = SnapStateMachine.nextPosition(from: currentPosition, direction: direction)
             
             switch result {
@@ -206,6 +214,11 @@ final class HotkeyManager {
                 // unsnapToMiddle() handles picker dismissal internally
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → middle")
                 windowManager.unsnapToMiddle()
+                
+            case .minimize:
+                // minimizeFrontmostWindow() handles picker dismissal internally
+                log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → minimize")
+                windowManager.minimizeFrontmostWindow()
             }
             
         case .moveToMonitor(let direction):

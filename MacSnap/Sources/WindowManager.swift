@@ -201,6 +201,24 @@ final class WindowManager {
         return true
     }
     
+    /// Minimize the frontmost window to the dock
+    /// - Returns: true if successful
+    @discardableResult
+    func minimizeFrontmostWindow() -> Bool {
+        // Dismiss any showing picker or cancel pending timer
+        SnapAssistController.shared.dismiss()
+        
+        guard let window = getFrontmostWindow() else {
+            debugLog("WindowManager: No frontmost window to minimize")
+            return false
+        }
+        
+        // Set the minimized attribute to true
+        let result = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        debugLog("WindowManager: Minimize result: \(result.rawValue)")
+        return result == .success
+    }
+    
     // MARK: - Snap Assist Support
     
     /// Get the process ID of the frontmost application
