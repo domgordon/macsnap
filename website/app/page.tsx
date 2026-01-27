@@ -25,7 +25,7 @@ export default function Home() {
 
           {/* Tagline */}
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-10">
-            Windows-style window snapping for macOS
+            Window snapping for macOS
           </p>
 
           {/* Download Button */}
@@ -80,8 +80,8 @@ export default function Home() {
               <ShortcutRow keys={['⌃', '⌥', '↑']} action="Snap top half" />
               <ShortcutRow keys={['⌃', '⌥', '↓']} action="Snap bottom half" />
               <ShortcutRow keys={['⌃', '⌥', '↵']} action="Maximize window" />
-              <div className="flex items-center justify-center py-2 px-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <span className="text-gray-500 dark:text-gray-400 text-xs">+ more quarter & combo shortcuts</span>
+              <div className="flex items-center justify-end py-2 px-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <span className="text-gray-600 dark:text-gray-400">+ more quarter & combo shortcuts</span>
               </div>
             </div>
           </div>
@@ -178,10 +178,10 @@ function GridIcon() {
 function MenuBarIcon() {
   return (
     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5M3.75 5.25v.75a.75.75 0 00.75.75h14.25a.75.75 0 00.75-.75v-.75M3.75 5.25a.75.75 0 01.75-.75h14.25a.75.75 0 01.75.75" />
-      <circle cx="17" cy="5.25" r="1" fill="currentColor" />
-      <circle cx="14" cy="5.25" r="1" fill="currentColor" />
-      <circle cx="11" cy="5.25" r="1" fill="currentColor" />
+      {/* Horizontal menu bar */}
+      <rect x="3" y="4" width="18" height="3" rx="0.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Small app icon in the bar */}
+      <rect x="16" y="5" width="3" height="1" rx="0.25" fill="currentColor" stroke="none" />
     </svg>
   )
 }
