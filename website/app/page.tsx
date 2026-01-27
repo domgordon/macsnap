@@ -48,24 +48,24 @@ export default function Home() {
       <section className="bg-gray-50 dark:bg-gray-900/50 py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-semibold text-center text-gray-900 dark:text-white mb-12">
-            Simple keyboard shortcuts. Powerful control.
+            Simple keyboard shortcuts.
           </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
             <FeatureCard
               icon={<KeyboardIcon />}
               title="Keyboard-First"
-              description="Snap windows with Control + Option + Arrow keys. No mouse required."
+              description="Snap windows with Control + Option + Arrow keys."
             />
             <FeatureCard
-              icon={<MonitorIcon />}
-              title="Multi-Monitor"
-              description="Move windows between displays instantly with keyboard shortcuts."
+              icon={<GridIcon />}
+              title="Smart Layout"
+              description="After snapping, choose from your other windows to complete the layout."
             />
             <FeatureCard
               icon={<MenuBarIcon />}
               title="Menu Bar App"
-              description="Runs silently in your menu bar. Launch at login, forget it's there."
+              description="Runs silently in your menu bar. Launch at login."
             />
           </div>
 
@@ -80,7 +80,9 @@ export default function Home() {
               <ShortcutRow keys={['⌃', '⌥', '↑']} action="Snap top half" />
               <ShortcutRow keys={['⌃', '⌥', '↓']} action="Snap bottom half" />
               <ShortcutRow keys={['⌃', '⌥', '↵']} action="Maximize window" />
-              <ShortcutRow keys={['⌃', '⌥', '⇧', '←/→']} action="Move to other monitor" />
+              <div className="flex items-center justify-center py-2 px-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <span className="text-gray-500 dark:text-gray-400 text-xs">+ more quarter & combo shortcuts</span>
+              </div>
             </div>
           </div>
         </div>
@@ -165,10 +167,10 @@ function KeyboardIcon() {
   )
 }
 
-function MonitorIcon() {
+function GridIcon() {
   return (
     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
     </svg>
   )
 }
@@ -176,7 +178,10 @@ function MonitorIcon() {
 function MenuBarIcon() {
   return (
     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5M3.75 5.25v.75a.75.75 0 00.75.75h14.25a.75.75 0 00.75-.75v-.75M3.75 5.25a.75.75 0 01.75-.75h14.25a.75.75 0 01.75.75" />
+      <circle cx="17" cy="5.25" r="1" fill="currentColor" />
+      <circle cx="14" cy="5.25" r="1" fill="currentColor" />
+      <circle cx="11" cy="5.25" r="1" fill="currentColor" />
     </svg>
   )
 }
