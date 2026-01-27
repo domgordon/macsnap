@@ -1,8 +1,8 @@
 # MacSnap
 
-**Windows-style window snapping for macOS.** Instantly snap windows to halves, quarters, or fullscreen using simple keyboard shortcuts.
+**Window snapping for macOS.** Instantly snap windows to halves, quarters, or fullscreen using simple keyboard shortcuts.
 
-[![Download](https://img.shields.io/badge/Download-MacSnap.dmg-blue?style=for-the-badge)](https://github.com/domgordon/macsnap/releases/latest/download/MacSnap.dmg)
+[![Download](https://img.shields.io/badge/Download-MacSnap.dmg-blue?style=for-the-badge)](https://macsnap.vercel.app)
 [![Latest Release](https://img.shields.io/github/v/release/domgordon/macsnap?style=flat-square)](https://github.com/domgordon/macsnap/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-12.0+-black?style=flat-square&logo=apple)](https://github.com/domgordon/macsnap)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -14,7 +14,7 @@
 - **Snap to halves** — Left, right, top, bottom
 - **Snap to quarters** — All four corners
 - **Maximize** — Fill the entire screen
-- **Multi-monitor** — Move windows between displays
+- **Smart layout** — After snapping, pick another window to fill the rest
 - **Menu bar app** — Runs silently, no dock icon
 - **Auto-updates** — Get new versions automatically via Sparkle
 - **Launch at login** — Start with your Mac
@@ -23,19 +23,12 @@
 
 ## Installation
 
-### Download (Recommended)
+**[Download from macsnap.vercel.app](https://macsnap.vercel.app)**
 
-1. **[Download MacSnap.dmg](https://github.com/domgordon/macsnap/releases/latest/download/MacSnap.dmg)**
-2. Open the DMG and drag MacSnap to Applications
-3. Launch MacSnap from Applications
-4. Grant Accessibility permissions when prompted
-5. Done! Use the keyboard shortcuts below
-
-### Homebrew (Coming Soon)
-
-```bash
-brew install --cask macsnap
-```
+1. Download the DMG
+2. Drag MacSnap to Applications
+3. Launch and grant Accessibility permissions
+4. Done!
 
 ---
 
@@ -61,13 +54,6 @@ All shortcuts use **Control + Option (⌃⌥)** as the base modifier.
 | `⌃⌥⌘ →` | Top-right quarter |
 | `⌃⌥⌘⇧ ←` | Bottom-left quarter |
 | `⌃⌥⌘⇧ →` | Bottom-right quarter |
-
-### Multi-Monitor
-
-| Shortcut | Action |
-|----------|--------|
-| `⌃⌥⇧ ←` | Move to left monitor |
-| `⌃⌥⇧ →` | Move to right monitor |
 
 ---
 
@@ -111,24 +97,12 @@ MacSnap lives in your menu bar. Click the icon to:
 ### Build
 
 ```bash
-# Clone the repo
 git clone https://github.com/domgordon/macsnap.git
 cd macsnap
-
-# Build Release
 xcodebuild -project MacSnap.xcodeproj -scheme MacSnap -configuration Release build
 ```
 
 The app will be at `build/Release/MacSnap.app`
-
-### Development
-
-```bash
-# Open in Xcode
-open MacSnap.xcodeproj
-
-# Build and Run (⌘R)
-```
 
 ---
 
@@ -151,18 +125,6 @@ MacSnap/
 
 ---
 
-## Contributing
-
-Contributions welcome! Please open an issue first to discuss changes.
-
----
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">
-  Made with ❤️ for the Mac
-</p>
