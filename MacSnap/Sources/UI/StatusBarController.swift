@@ -3,6 +3,9 @@ import AppKit
 /// Manages the menu bar status item and its menu
 final class StatusBarController: NSObject {
     
+    /// Shared instance for access from other parts of the app
+    static var shared: StatusBarController?
+    
     private var statusItem: NSStatusItem?
     private let hotkeyManager = HotkeyManager.shared
     
@@ -52,7 +55,8 @@ final class StatusBarController: NSObject {
     private func setupStatusItem() {
         debugLog("StatusBarController: Setting up status item...")
         
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // Use a wider length for better highlight appearance (matches native menu bar items)
+        statusItem = NSStatusBar.system.statusItem(withLength: 32)
         
         guard let button = statusItem?.button else {
             debugLog("StatusBarController: ERROR - Failed to create status bar button!")
@@ -126,6 +130,61 @@ final class StatusBarController: NSObject {
         }
         
         button.alphaValue = currentAlpha
+    }
+    
+    // MARK: - Highlight Animation
+    
+    /// Pulse a blue background highlight behind the menu bar icon (like native macOS selection)
+    func flashIcon(times: Int = 5) {
+        guard let button = statusItem?.button else { return }
+        
+        debugLog("StatusBarController: Pulsing highlight \(times) times")
+        
+        // Enable layer-backed view for Core Animation
+        button.wantsLayer = true
+        guard let layer = button.layer else { return }
+        
+        // Pill-shaped corners like native macOS menu bar selection
+        layer.cornerRadius = 5
+        layer.masksToBounds = true
+        
+        let highlightColor = NSColor.controlAccentColor.withAlphaComponent(0.85).cgColor
+        let clearColor = NSColor.clear.cgColor
+        
+        // Create a pulsing animation
+        let animation = CAKeyframeAnimation(keyPath: "backgroundColor")
+        
+        // Build keyframe values: clear -> highlight -> clear (repeated)
+        var values: [CGColor] = []
+        var keyTimes: [NSNumber] = []
+        
+        for i in 0..<times {
+            let baseTime = Double(i) / Double(times)
+            let midTime = (Double(i) + 0.5) / Double(times)
+            
+            values.append(clearColor)
+            keyTimes.append(NSNumber(value: baseTime))
+            
+            values.append(highlightColor)
+            keyTimes.append(NSNumber(value: midTime))
+        }
+        // End with clear
+        values.append(clearColor)
+        keyTimes.append(NSNumber(value: 1.0))
+        
+        animation.values = values
+        animation.keyTimes = keyTimes
+        animation.duration = Double(times) * 2.0  // 2 seconds per pulse cycle
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        animation.isRemovedOnCompletion = true
+        
+        // Ensure we end with clear background
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            layer.backgroundColor = clearColor
+        }
+        layer.add(animation, forKey: "pulseHighlight")
+        CATransaction.commit()
     }
     
     // MARK: - Menu Creation (Initial)

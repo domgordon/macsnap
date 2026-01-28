@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize status bar (doesn't require permissions)
         debugLog("AppDelegate: Creating StatusBarController...")
         statusBarController = StatusBarController()
+        StatusBarController.shared = statusBarController
         
         // On first launch: show onboarding FIRST, before requesting any permissions
         // This ensures users understand WHY they need to grant accessibility access

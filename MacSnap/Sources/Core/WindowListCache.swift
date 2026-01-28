@@ -77,10 +77,9 @@ final class WindowListCache {
             return false
         }
         
-        // Skip MacSnap itself
-        if ownerName == "MacSnap" {
-            return false
-        }
+        // Skip MacSnap's picker window (layer check already excludes it, but be explicit)
+        // Allow other MacSnap windows like onboarding to appear in the picker
+        // The picker window has a high window level so it's filtered by layer != 0 above
         
         // Skip small windows (tooltips, etc.)
         let width = boundsDict["Width"] ?? 0

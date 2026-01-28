@@ -10,7 +10,7 @@ final class OnboardingWindowController: NSWindowController {
     private init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 380),
-            styleMask: [.titled, .closable],
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -61,5 +61,53 @@ final class OnboardingWindowController: NSWindowController {
     override func close() {
         window?.orderOut(nil)
         debugLog("OnboardingWindowController: Closed onboarding window")
+    }
+    
+    // MARK: - Tutorial Animation
+    
+    /// Prepare for tutorial mode (no size change needed)
+    func prepareForTutorial() {
+        // No size change needed - window stays at current size for seamless transition
+        debugLog("OnboardingWindowController: Tutorial started")
+    }
+    
+    /// Animate the onboarding window to a snap position
+    func snapWindow(to position: SnapPosition, completion: (() -> Void)? = nil) {
+        guard let window = self.window,
+              let screen = window.screen else {
+            completion?()
+            return
+        }
+        
+        let targetFrame = position.frame(
+            in: screen.visibleFrame,
+            fullFrame: screen.frame
+        )
+        
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(targetFrame, display: true)
+        }, completionHandler: {
+            debugLog("OnboardingWindowController: Snapped to \(position.displayName)")
+            completion?()
+        })
+    }
+    
+    /// Center the window on screen (preserves current size)
+    func centerWindow() {
+        guard let window = self.window,
+              let screen = window.screen else { return }
+        
+        var frame = window.frame
+        frame.origin.x = screen.visibleFrame.midX - frame.width / 2
+        frame.origin.y = screen.visibleFrame.midY - frame.height / 2
+        
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(frame, display: true)
+        }
+        debugLog("OnboardingWindowController: Centered window")
     }
 }

@@ -1,5 +1,13 @@
 import AppKit
 
+// MARK: - Snap Assist Notification
+
+extension Notification.Name {
+    /// Posted when the snap assist picker is dismissed
+    /// userInfo contains: "windowSelected" (Bool) - true if a window was selected
+    static let snapAssistDismissed = Notification.Name("MacSnapAssistDismissed")
+}
+
 /// Orchestrates the Snap Assist feature with Windows-style timing
 /// Uses a cancellable delay timer to allow chained snaps before showing the picker
 /// Supports multi-zone sequential picking for quarter snaps
@@ -102,12 +110,17 @@ final class SnapAssistController {
     }
     
     /// Dismiss any visible snap assist window and unlock window movement
-    func dismiss() {
+    /// - Parameter windowSelected: Whether a window was selected from the picker (vs dismissed/cancelled)
+    func dismiss(windowSelected: Bool = false) {
         cancelPendingAssist()
         
         // Clear callbacks before closing to prevent re-entry
         assistWindow?.onDismiss = nil
         assistWindow?.onWindowSelected = nil
+        
+        // Prevent resignKey from triggering dismissPicker animation
+        assistWindow?.ignoreResignEvents = true
+        
         assistWindow?.close()
         assistWindow = nil
         
@@ -124,7 +137,14 @@ final class SnapAssistController {
         excludeWindowID = nil
         previousApp = nil
         originalSnappedPosition = nil
-        debugLog("SnapAssist: Dismissed (window closed, state cleared)")
+        debugLog("SnapAssist: Dismissed (window closed, state cleared, windowSelected=\(windowSelected))")
+        
+        // Post notification for observers (e.g., onboarding tutorial)
+        NotificationCenter.default.post(
+            name: .snapAssistDismissed,
+            object: nil,
+            userInfo: ["windowSelected": windowSelected]
+        )
     }
     
     // MARK: - ScreenLayout-Based Picker Logic
@@ -260,7 +280,7 @@ final class SnapAssistController {
             
             if otherWindows.isEmpty {
                 debugLog("SnapAssist: No more windows to show, dismissing")
-                dismiss()
+                dismiss(windowSelected: true)
             } else {
                 debugLog("SnapAssist: Transitioning to next picker...")
                 // Prevent resignKey from triggering dismiss during transition
@@ -283,7 +303,7 @@ final class SnapAssistController {
             // All positions filled - clear previousApp so we don't override the final selected window
             previousApp = nil
             debugLog("SnapAssist: All positions filled (pendingPositions empty), dismissing")
-            dismiss()
+            dismiss(windowSelected: true)
         }
     }
 }

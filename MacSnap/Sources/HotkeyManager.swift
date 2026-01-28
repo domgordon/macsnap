@@ -1,6 +1,22 @@
 import AppKit
 import Carbon
 
+// MARK: - Snap Action Notification
+
+extension Notification.Name {
+    /// Posted when a snap action is performed via hotkey
+    /// userInfo contains: "action" (SnapActionInfo)
+    static let snapActionPerformed = Notification.Name("MacSnapActionPerformed")
+}
+
+/// Information about a snap action for notification observers
+struct SnapActionInfo {
+    let direction: SnapDirection?
+    let position: SnapPosition?
+    let isUnsnapToMiddle: Bool
+    let isMinimize: Bool
+}
+
 /// Manages global keyboard shortcut detection and handling
 final class HotkeyManager {
     
@@ -187,6 +203,7 @@ final class HotkeyManager {
             }
             log("Snapping to \(position.displayName)")
             windowManager.snapFrontmostWindow(to: position)
+            postSnapNotification(direction: nil, position: position, isUnsnapToMiddle: false, isMinimize: false)
             
         case .smartDirection(let direction):
             // When picker is showing, use the stored snapped position (can't detect - MacSnap is frontmost)
@@ -209,16 +226,19 @@ final class HotkeyManager {
                 }
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → \(targetPosition.displayName)")
                 windowManager.snapFrontmostWindow(to: targetPosition)
+                postSnapNotification(direction: direction, position: targetPosition, isUnsnapToMiddle: false, isMinimize: false)
                 
             case .unsnapToMiddle:
                 // unsnapToMiddle() handles picker dismissal internally
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → middle")
                 windowManager.unsnapToMiddle()
+                postSnapNotification(direction: direction, position: nil, isUnsnapToMiddle: true, isMinimize: false)
                 
             case .minimize:
                 // minimizeFrontmostWindow() handles picker dismissal internally
                 log("Smart \(direction): \(currentPosition?.displayName ?? "unsnapped") → minimize")
                 windowManager.minimizeFrontmostWindow()
+                postSnapNotification(direction: direction, position: nil, isUnsnapToMiddle: false, isMinimize: true)
             }
             
         case .moveToMonitor(let direction):
@@ -229,6 +249,21 @@ final class HotkeyManager {
             log("Moving to \(direction) monitor")
             windowManager.moveFrontmostWindow(to: direction)
         }
+    }
+    
+    /// Post notification about snap action for observers (e.g., onboarding tutorial)
+    private func postSnapNotification(direction: SnapDirection?, position: SnapPosition?, isUnsnapToMiddle: Bool, isMinimize: Bool) {
+        let info = SnapActionInfo(
+            direction: direction,
+            position: position,
+            isUnsnapToMiddle: isUnsnapToMiddle,
+            isMinimize: isMinimize
+        )
+        NotificationCenter.default.post(
+            name: .snapActionPerformed,
+            object: nil,
+            userInfo: ["action": info]
+        )
     }
 }
 
