@@ -8,7 +8,11 @@ struct WindowInfo {
     let ownerName: String
     let title: String
     let frame: CGRect  // In NSScreen coordinates
-    let appIcon: NSImage?  // Captured at creation time for performance
+    
+    /// Lazily-loaded app icon using shared cache
+    var appIcon: NSImage? {
+        AppIconCache.shared.icon(for: ownerPID)
+    }
 }
 
 /// Manages window manipulation using macOS Accessibility APIs.

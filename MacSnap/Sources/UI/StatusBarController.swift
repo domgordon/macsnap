@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 
 /// Manages the menu bar status item and its menu
 final class StatusBarController: NSObject {
@@ -429,12 +430,23 @@ extension StatusBarController: NSMenuDelegate {
     }
     
     private func showNotificationAndRestart() {
-        // Show notification
-        let notification = NSUserNotification()
-        notification.title = "MacSnap"
-        notification.informativeText = "Permissions granted! Restarting to apply..."
-        notification.soundName = NSUserNotificationDefaultSoundName
-        NSUserNotificationCenter.default.deliver(notification)
+        // Show notification using modern UNUserNotificationCenter
+        let content = UNMutableNotificationContent()
+        content.title = "MacSnap"
+        content.body = "Permissions granted! Restarting to apply..."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "permissionGranted",
+            content: content,
+            trigger: nil  // Immediate delivery
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                debugLog("StatusBarController: Failed to show notification: \(error)")
+            }
+        }
         
         // Restart after a brief moment
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {

@@ -137,6 +137,10 @@ final class SnapAssistController {
         excludeWindowID = nil
         previousApp = nil
         originalSnappedPosition = nil
+        
+        // Clear the app icon cache to free memory
+        AppIconCache.shared.clear()
+        
         debugLog("SnapAssist: Dismissed (window closed, state cleared, windowSelected=\(windowSelected))")
         
         // Post notification for observers (e.g., onboarding tutorial)

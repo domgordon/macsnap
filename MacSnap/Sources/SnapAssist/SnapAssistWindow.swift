@@ -4,6 +4,22 @@ import AppKit
 /// Supports multi-zone display with active/waiting states
 final class SnapAssistWindow: NSWindow {
     
+    // MARK: - Layout Constants
+    
+    /// Shared layout constants for zone and thumbnail positioning
+    enum Layout {
+        /// Inset padding for visual breathing room between zones
+        static let zonePadding: CGFloat = 10
+        /// Inner margin within the blur area
+        static let contentMargin: CGFloat = 32
+        /// Total padding from zone edge to content (zonePadding + contentMargin)
+        static let totalPadding: CGFloat = zonePadding + contentMargin
+        /// Total padding for both sides (used in width/height calculations)
+        static let totalPaddingBothSides: CGFloat = totalPadding * 2
+        /// Spacing between thumbnails
+        static let thumbnailSpacing: CGFloat = 12
+    }
+    
     // MARK: - Properties
     
     /// Windows available for selection (internal for keyboard extension)
@@ -122,8 +138,7 @@ final class SnapAssistWindow: NSWindow {
         containerView.wantsLayer = true
         
         // Inset padding for visual breathing room between zones
-        let zonePadding: CGFloat = 10
-        let insetBounds = containerView.bounds.insetBy(dx: zonePadding, dy: zonePadding)
+        let insetBounds = containerView.bounds.insetBy(dx: Layout.zonePadding, dy: Layout.zonePadding)
         
         // Blur background with native macOS styling
         let blurView = NSVisualEffectView(frame: insetBounds)
@@ -162,16 +177,12 @@ final class SnapAssistWindow: NSWindow {
         containerView.wantsLayer = true
         scrollView.documentView = containerView
         
-        // Content padding within the blur area (zone padding + inner content margin)
-        let zonePadding: CGFloat = 10  // Must match createZoneView
-        let contentMargin: CGFloat = 32  // Inner margin within blur
-        let totalPadding = zonePadding + contentMargin
-        
+        // Content padding within the blur area
         scrollView.frame = NSRect(
-            x: totalPadding,
-            y: totalPadding,
-            width: zoneView.bounds.width - (totalPadding * 2),
-            height: zoneView.bounds.height - (totalPadding * 2)
+            x: Layout.totalPadding,
+            y: Layout.totalPadding,
+            width: zoneView.bounds.width - Layout.totalPaddingBothSides,
+            height: zoneView.bounds.height - Layout.totalPaddingBothSides
         )
         scrollView.autoresizingMask = [.width, .height]
         zoneView.addSubview(scrollView)
@@ -180,13 +191,12 @@ final class SnapAssistWindow: NSWindow {
         let availableWidth = scrollView.frame.width - 40
         let thumbnailWidth = WindowThumbnailView.totalSize.width
         let thumbnailHeight = WindowThumbnailView.totalSize.height
-        let spacing: CGFloat = 12
         
-        let columns = max(1, Int((availableWidth + spacing) / (thumbnailWidth + spacing)))
+        let columns = max(1, Int((availableWidth + Layout.thumbnailSpacing) / (thumbnailWidth + Layout.thumbnailSpacing)))
         let rows = (windows.count + columns - 1) / columns
         
-        let totalWidth = CGFloat(columns) * thumbnailWidth + CGFloat(columns - 1) * spacing
-        let totalHeight = CGFloat(rows) * thumbnailHeight + CGFloat(rows - 1) * spacing
+        let totalWidth = CGFloat(columns) * thumbnailWidth + CGFloat(columns - 1) * Layout.thumbnailSpacing
+        let totalHeight = CGFloat(rows) * thumbnailHeight + CGFloat(rows - 1) * Layout.thumbnailSpacing
         
         containerView.frame = NSRect(x: 0, y: 0, width: max(totalWidth, availableWidth), height: totalHeight)
         
@@ -194,8 +204,8 @@ final class SnapAssistWindow: NSWindow {
             let row = index / columns
             let col = index % columns
             
-            let x = CGFloat(col) * (thumbnailWidth + spacing)
-            let y = CGFloat(row) * (thumbnailHeight + spacing)
+            let x = CGFloat(col) * (thumbnailWidth + Layout.thumbnailSpacing)
+            let y = CGFloat(row) * (thumbnailHeight + Layout.thumbnailSpacing)
             
             debugLog("SnapAssistWindow: Creating thumbnail[\(index)] for '\(windowInfo.title)' at \(windowInfo.frame)")
             let thumbnailView = WindowThumbnailView(windowInfo: windowInfo)

@@ -1,13 +1,5 @@
 import Foundation
 
-/// Direction for snap transitions (keyboard arrow directions)
-enum SnapDirection {
-    case up
-    case down
-    case left
-    case right
-}
-
 /// Result of a snap transition
 enum SnapTransitionResult {
     case snap(SnapPosition)

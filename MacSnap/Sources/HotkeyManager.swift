@@ -139,9 +139,9 @@ final class HotkeyManager {
         // Control + Option + Shift (no Cmd) + Arrow = Move between monitors
         if hasShift && !hasCommand {
             switch keyCode {
-            case KeyCode.leftArrow:
+            case KeyCodes.leftArrow:
                 return .moveToMonitor(.left)
-            case KeyCode.rightArrow:
+            case KeyCodes.rightArrow:
                 return .moveToMonitor(.right)
             default:
                 return nil
@@ -151,9 +151,9 @@ final class HotkeyManager {
         // Control + Option + Command + Shift + Arrow = Bottom quarters
         if hasCommand && hasShift {
             switch keyCode {
-            case KeyCode.leftArrow:
+            case KeyCodes.leftArrow:
                 return .snap(.bottomLeftQuarter)
-            case KeyCode.rightArrow:
+            case KeyCodes.rightArrow:
                 return .snap(.bottomRightQuarter)
             default:
                 return nil
@@ -163,9 +163,9 @@ final class HotkeyManager {
         // Control + Option + Command + Arrow = Top quarters
         if hasCommand && !hasShift {
             switch keyCode {
-            case KeyCode.leftArrow:
+            case KeyCodes.leftArrow:
                 return .snap(.topLeftQuarter)
-            case KeyCode.rightArrow:
+            case KeyCodes.rightArrow:
                 return .snap(.topRightQuarter)
             default:
                 return nil
@@ -175,15 +175,15 @@ final class HotkeyManager {
         // Control + Option + Arrow/Return = Basic snapping (halves + maximize)
         if !hasCommand && !hasShift {
             switch keyCode {
-            case KeyCode.leftArrow:
+            case KeyCodes.leftArrow:
                 return .smartDirection(.left)
-            case KeyCode.rightArrow:
+            case KeyCodes.rightArrow:
                 return .smartDirection(.right)
-            case KeyCode.upArrow:
+            case KeyCodes.upArrow:
                 return .smartDirection(.up)
-            case KeyCode.downArrow:
+            case KeyCodes.downArrow:
                 return .smartDirection(.down)
-            case KeyCode.returnKey, KeyCode.enter:
+            case KeyCodes.returnKey, KeyCodes.enter:
                 return .snap(.maximize)
             default:
                 return nil
@@ -285,14 +285,4 @@ private enum SnapAction: CustomStringConvertible {
             return "moveToMonitor(\(direction))"
         }
     }
-}
-
-/// macOS key codes for arrow keys and return
-private enum KeyCode {
-    static let leftArrow: UInt16 = 123
-    static let rightArrow: UInt16 = 124
-    static let downArrow: UInt16 = 125
-    static let upArrow: UInt16 = 126
-    static let returnKey: UInt16 = 36
-    static let enter: UInt16 = 76  // Numpad enter
 }

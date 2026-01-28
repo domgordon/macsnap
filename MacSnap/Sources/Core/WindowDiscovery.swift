@@ -76,16 +76,10 @@ enum WindowDiscovery {
             guard let pid = WindowListCache.getOwnerPID(windowInfo),
                   pid == ownerPID,
                   let windowID = WindowListCache.getWindowID(windowInfo),
-                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] else {
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let cgFrame = CoordinateConverter.cgRect(from: boundsDict) else {
                 continue
             }
-            
-            let cgFrame = CGRect(
-                x: boundsDict["X"] ?? 0,
-                y: boundsDict["Y"] ?? 0,
-                width: boundsDict["Width"] ?? 0,
-                height: boundsDict["Height"] ?? 0
-            )
             
             if FrameMatcher.matchesExact(axFrame, cgFrame) {
                 debugLog("WindowDiscovery: Found window ID: \(windowID)")
@@ -126,7 +120,8 @@ enum WindowDiscovery {
                   let ownerPID = WindowListCache.getOwnerPID(windowInfo),
                   let ownerName = WindowListCache.getOwnerName(windowInfo),
                   let nsFrame = WindowListCache.getFrame(windowInfo),
-                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] else {
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let cgFrame = CoordinateConverter.cgRect(from: boundsDict) else {
                 continue
             }
             
@@ -134,13 +129,6 @@ enum WindowDiscovery {
             if let excludeID = excludeWindowID, windowID == excludeID {
                 continue
             }
-            
-            let cgFrame = CGRect(
-                x: boundsDict["X"] ?? 0,
-                y: boundsDict["Y"] ?? 0,
-                width: boundsDict["Width"] ?? 0,
-                height: boundsDict["Height"] ?? 0
-            )
             
             // Check if window is on the specified screen
             let windowCenter = CGPoint(x: nsFrame.midX, y: nsFrame.midY)
@@ -197,16 +185,13 @@ enum WindowDiscovery {
             
             debugLog("WindowDiscovery: Window \(candidate.windowID) '\(title)' at \(candidate.nsFrame)")
             
-            // Capture app icon once at creation time
-            let appIcon = NSRunningApplication(processIdentifier: candidate.ownerPID)?.icon
-            
+            // App icon is now lazily loaded via AppIconCache
             windows.append(WindowInfo(
                 windowID: candidate.windowID,
                 ownerPID: candidate.ownerPID,
                 ownerName: candidate.ownerName,
                 title: title,
-                frame: candidate.nsFrame,
-                appIcon: appIcon
+                frame: candidate.nsFrame
             ))
         }
         

@@ -59,14 +59,23 @@ enum CoordinateConverter {
     /// - Parameter cgBounds: Bounds dictionary from CGWindowListCopyWindowInfo
     /// - Returns: Frame in NSScreen coordinates, or nil if bounds are invalid
     static func cgBoundsToNS(_ boundsDict: [String: CGFloat]) -> CGRect? {
+        guard let cgFrame = cgRect(from: boundsDict) else {
+            return nil
+        }
+        return axToNS(cgFrame)  // CG uses same coord system as AX
+    }
+    
+    /// Create a CGRect from a bounds dictionary (from CGWindowListCopyWindowInfo)
+    /// Returns the raw frame in CG coordinates (top-left origin, Y-down)
+    /// - Parameter boundsDict: Bounds dictionary with X, Y, Width, Height keys
+    /// - Returns: Frame in CG coordinates, or nil if bounds are invalid
+    static func cgRect(from boundsDict: [String: CGFloat]) -> CGRect? {
         guard let x = boundsDict["X"],
               let y = boundsDict["Y"],
               let width = boundsDict["Width"],
               let height = boundsDict["Height"] else {
             return nil
         }
-        
-        let cgFrame = CGRect(x: x, y: y, width: width, height: height)
-        return axToNS(cgFrame)  // CG uses same coord system as AX
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 }

@@ -54,12 +54,10 @@ extension SnapAssistWindow {
         guard !windows.isEmpty else { return }
         guard let firstZone = zoneViews.first else { return }
         
-        // Must match setupThumbnails padding calculation
-        let totalPadding: CGFloat = (10 + 32) * 2  // zonePadding + contentMargin, both sides
-        let availableWidth = firstZone.bounds.width - totalPadding
+        // Uses Layout constants from SnapAssistWindow for consistent calculations
+        let availableWidth = firstZone.bounds.width - Layout.totalPaddingBothSides
         let thumbnailWidth = WindowThumbnailView.totalSize.width
-        let spacing: CGFloat = 12
-        let columns = max(1, Int((availableWidth + spacing) / (thumbnailWidth + spacing)))
+        let columns = max(1, Int((availableWidth + Layout.thumbnailSpacing) / (thumbnailWidth + Layout.thumbnailSpacing)))
         
         let newIndex = selectedIndex + (rowDelta * columns)
         if newIndex >= 0 && newIndex < windows.count {
@@ -67,18 +65,4 @@ extension SnapAssistWindow {
             updateSelection()
         }
     }
-}
-
-// MARK: - Key Codes
-
-/// Centralized key code constants for keyboard handling
-private enum KeyCodes {
-    static let escape: UInt16 = 53
-    static let returnKey: UInt16 = 36
-    static let enter: UInt16 = 76
-    static let leftArrow: UInt16 = 123
-    static let rightArrow: UInt16 = 124
-    static let downArrow: UInt16 = 125
-    static let upArrow: UInt16 = 126
-    static let tab: UInt16 = 48
 }

@@ -2,30 +2,6 @@ import SwiftUI
 import AppKit
 import Combine
 
-/// Arrow key directions for tutorial
-enum ArrowKey: Equatable {
-    case left, right, up, down
-    
-    var keyCode: UInt16 {
-        switch self {
-        case .left: return 123
-        case .right: return 124
-        case .up: return 126
-        case .down: return 125
-        }
-    }
-    
-    static func from(keyCode: UInt16) -> ArrowKey? {
-        switch keyCode {
-        case 123: return .left
-        case 124: return .right
-        case 126: return .up
-        case 125: return .down
-        default: return nil
-        }
-    }
-}
-
 /// Steps in the onboarding flow
 enum OnboardingStep: Equatable {
     case requestingPermission
@@ -74,7 +50,7 @@ enum OnboardingStep: Equatable {
         }
     }
     
-    var expectedArrow: ArrowKey? {
+    var expectedDirection: SnapDirection? {
         switch self {
         case .tutorialStep1_left: return .left
         case .tutorialStep3_center: return .right
@@ -149,7 +125,7 @@ struct OnboardingView: View {
     // Key press tracking
     @State private var isControlPressed: Bool = false
     @State private var isOptionPressed: Bool = false
-    @State private var pressedArrowKey: ArrowKey? = nil
+    @State private var pressedDirection: SnapDirection? = nil
     @State private var keyMonitor: Any? = nil
     
     // Notification publishers
@@ -223,49 +199,7 @@ struct OnboardingView: View {
     }
     
     private var permissionCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(hasPermissions ? Color.green : Color.orange)
-                    .frame(width: 6, height: 6)
-                
-                Text(hasPermissions ? "Ready" : "Accessibility access needed")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            
-            if !hasPermissions {
-                Text("MacSnap needs permission to move windows.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                
-                Button(action: { AppUtils.openAccessibilitySettings() }) {
-                    Text("Open System Settings")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.accentColor)
-                        )
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.03))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-                )
-        )
-        .padding(.horizontal, 28)
+        PermissionCardView(hasPermissions: hasPermissions)
     }
     
     // MARK: - Tutorial Step View
@@ -276,14 +210,8 @@ struct OnboardingView: View {
                 .frame(height: 36)
             
             // Step indicator
-            HStack(spacing: 6) {
-                ForEach(tutorialSteps, id: \.self) { step in
-                    Circle()
-                        .fill(stepIndicatorColor(for: step))
-                        .frame(width: 6, height: 6)
-                }
-            }
-            .padding(.bottom, 28)
+            StepIndicatorView(steps: tutorialSteps, currentStep: currentStep)
+                .padding(.bottom, 28)
             
             // Title
             Text(currentStep.title)
@@ -303,15 +231,20 @@ struct OnboardingView: View {
             
             // Show different content for picker step vs keyboard steps
             if currentStep.isPickerStep {
-                pickerStepContent
+                PickerStepContentView()
             } else {
                 VStack(spacing: 16) {
                     // Show "click this window" hint after picker step
                     if shouldShowClickWindowHint {
-                        clickWindowHint
+                        ClickWindowHintView()
                     }
                     
-                    keyboardShortcutView
+                    KeyboardShortcutView(
+                        step: currentStep,
+                        isControlPressed: isControlPressed,
+                        isOptionPressed: isOptionPressed,
+                        isArrowPressed: isCorrectArrowPressed
+                    )
                 }
             }
             
@@ -324,91 +257,12 @@ struct OnboardingView: View {
         currentStep == .tutorialStep3_center && cameFromPickerStep
     }
     
-    /// Hint to click this window after using picker
-    private var clickWindowHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "cursorarrow.click.2")
-                .font(.system(size: 14))
-                .foregroundStyle(.orange)
-            
-            Text("Click this window first")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.orange)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.orange.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.orange.opacity(0.2), lineWidth: 0.5)
-                )
-        )
-    }
-    
-    /// Content shown during the picker step (no keyboard shortcut)
-    private var pickerStepContent: some View {
-        VStack(spacing: 12) {
-            // Arrow pointing to the picker
-            Image(systemName: "arrow.right.circle")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(.secondary)
-            
-            Text("Click a window in the picker")
-                .font(.system(size: 12))
-                .foregroundStyle(.tertiary)
-        }
-    }
-    
-    private func stepIndicatorColor(for step: OnboardingStep) -> Color {
-        if step == currentStep {
-            return .accentColor
-        } else if stepIndex(step) < stepIndex(currentStep) {
-            return .green
-        } else {
-            return .primary.opacity(0.15)
-        }
-    }
-    
-    private func stepIndex(_ step: OnboardingStep) -> Int {
-        tutorialSteps.firstIndex(of: step) ?? -1
-    }
-    
-    private var keyboardShortcutView: some View {
-        HStack(spacing: 6) {
-            KeyCapView(label: "⌃", sublabel: "control", isHighlighted: isControlPressed)
-            KeyCapView(label: "⌥", sublabel: "option", isHighlighted: isOptionPressed)
-            KeyCapView(label: arrowSymbol, sublabel: arrowLabel, isHighlighted: isCorrectArrowPressed)
-        }
-    }
-    
     private var isCorrectArrowPressed: Bool {
-        guard let expected = currentStep.expectedArrow,
-              let pressed = pressedArrowKey else {
+        guard let expected = currentStep.expectedDirection,
+              let pressed = pressedDirection else {
             return false
         }
         return pressed == expected
-    }
-    
-    private var arrowSymbol: String {
-        switch currentStep {
-        case .tutorialStep1_left: return "←"
-        case .tutorialStep3_center: return "→"
-        case .tutorialStep4_up: return "↑"
-        case .tutorialStep5_center: return "↓"
-        default: return ""
-        }
-    }
-    
-    private var arrowLabel: String {
-        switch currentStep {
-        case .tutorialStep1_left: return "left"
-        case .tutorialStep3_center: return "right"
-        case .tutorialStep4_up: return "up"
-        case .tutorialStep5_center: return "down"
-        default: return ""
-        }
     }
     
     
@@ -437,7 +291,7 @@ struct OnboardingView: View {
                 .frame(height: 28)
             
             // Menu bar preview
-            menuBarPreview
+            MenuBarPreviewView()
             
             Spacer()
                 .frame(height: 10)
@@ -464,62 +318,6 @@ struct OnboardingView: View {
             .padding(.horizontal, 40)
             .padding(.bottom, 28)
         }
-    }
-    
-    /// Visual representation of the menu bar with MacSnap icon
-    private var menuBarPreview: some View {
-        HStack(spacing: 0) {
-            // Left side placeholder items
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.primary.opacity(0.15))
-                    .frame(width: 20, height: 8)
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 28, height: 8)
-            }
-            
-            Spacer()
-            
-            // Right side with MacSnap icon highlighted
-            HStack(spacing: 6) {
-                // Other menu bar icons (placeholder circles)
-                Circle()
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 14, height: 14)
-                Circle()
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 14, height: 14)
-                
-                // MacSnap icon (highlighted)
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 26, height: 22)
-                    
-                    Image(systemName: "rectangle.split.2x1")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
-                }
-                
-                // Time placeholder
-                Text("12:00")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.4))
-                    .padding(.leading, 4)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: 240)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(0.03))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-                )
-        )
     }
     
     // MARK: - Lifecycle
@@ -607,7 +405,7 @@ struct OnboardingView: View {
         }
         
         // Reset key states
-        pressedArrowKey = nil
+        pressedDirection = nil
         
         // Reset "came from picker" flag when leaving step 3
         if currentStep == .tutorialStep3_center {
@@ -705,23 +503,14 @@ struct OnboardingView: View {
         
         // Update arrow key highlight based on direction
         if let direction = info.direction {
-            let arrow: ArrowKey? = {
-                switch direction {
-                case .left: return .left
-                case .right: return .right
-                case .up: return .up
-                case .down: return .down
-                }
-            }()
-            
             withAnimation(.easeInOut(duration: 0.1)) {
-                pressedArrowKey = arrow
+                pressedDirection = direction
             }
             
             // Clear the highlight after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 withAnimation(.easeInOut(duration: 0.1)) {
-                    self.pressedArrowKey = nil
+                    self.pressedDirection = nil
                 }
             }
         }
@@ -767,17 +556,7 @@ struct OnboardingView: View {
     
     private func checkForCorrectAction(_ info: SnapActionInfo) {
         guard currentStep.isTutorialStep else { return }
-        guard let expectedArrow = currentStep.expectedArrow else { return }
-        
-        // Map expected arrow to expected direction
-        let expectedDirection: SnapDirection = {
-            switch expectedArrow {
-            case .left: return .left
-            case .right: return .right
-            case .up: return .up
-            case .down: return .down
-            }
-        }()
+        guard let expectedDirection = currentStep.expectedDirection else { return }
         
         // Check if the direction matches
         guard info.direction == expectedDirection else { return }
