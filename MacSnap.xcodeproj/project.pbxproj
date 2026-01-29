@@ -33,6 +33,9 @@
 		A1000024 /* WindowDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000026 /* WindowDiscovery.swift */; };
 		A1000025 /* SnapAssistWindow+Keyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000027 /* SnapAssistWindow+Keyboard.swift */; };
 		A1000026 /* StatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000028 /* StatusBarMenu.swift */; };
+		A1000027 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000029 /* KeyCodes.swift */; };
+		A1000028 /* AppIconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000030 /* AppIconCache.swift */; };
+		A1000029 /* OnboardingSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000031 /* OnboardingSubviews.swift */; };
 		C1000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C2000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
@@ -65,6 +68,9 @@
 		A2000026 /* WindowDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDiscovery.swift; sourceTree = "<group>"; };
 		A2000027 /* SnapAssistWindow+Keyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SnapAssistWindow+Keyboard.swift"; sourceTree = "<group>"; };
 		A2000028 /* StatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarMenu.swift; sourceTree = "<group>"; };
+		A2000029 /* KeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodes.swift; sourceTree = "<group>"; };
+		A2000030 /* AppIconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconCache.swift; sourceTree = "<group>"; };
+		A2000031 /* OnboardingSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSubviews.swift; sourceTree = "<group>"; };
 		A3000001 /* MacSnap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -142,9 +148,11 @@
 		A5000006 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				A2000030 /* AppIconCache.swift */,
 				A2000025 /* AXHelpers.swift */,
 				A2000018 /* CoordinateConverter.swift */,
 				A2000019 /* FrameMatcher.swift */,
+				A2000029 /* KeyCodes.swift */,
 				A2000021 /* WindowAnimator.swift */,
 				A2000026 /* WindowDiscovery.swift */,
 				A2000020 /* WindowListCache.swift */,
@@ -155,6 +163,7 @@
 		A5000007 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				A2000031 /* OnboardingSubviews.swift */,
 				A2000012 /* OnboardingView.swift */,
 				A2000013 /* OnboardingWindowController.swift */,
 				A2000003 /* StatusBarController.swift */,
@@ -257,12 +266,15 @@
 				A1000025 /* SnapAssistWindow+Keyboard.swift in Sources */,
 				A1000014 /* WindowThumbnailView.swift in Sources */,
 				A1000015 /* ScreenLayout.swift in Sources */,
+				A1000028 /* AppIconCache.swift in Sources */,
 				A1000023 /* AXHelpers.swift in Sources */,
 				A1000016 /* CoordinateConverter.swift in Sources */,
 				A1000017 /* FrameMatcher.swift in Sources */,
+				A1000027 /* KeyCodes.swift in Sources */,
 				A1000019 /* WindowAnimator.swift in Sources */,
 				A1000024 /* WindowDiscovery.swift in Sources */,
 				A1000018 /* WindowListCache.swift in Sources */,
+				A1000029 /* OnboardingSubviews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

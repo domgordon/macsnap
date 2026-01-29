@@ -315,6 +315,7 @@ struct OnboardingView: View {
                     )
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(.return, modifiers: [])
             .padding(.horizontal, 40)
             .padding(.bottom, 28)
         }
@@ -377,13 +378,10 @@ struct OnboardingView: View {
         // Start the hotkey manager so shortcuts work going forward
         HotkeyManager.shared.start()
         
-        // Check if there are other windows available for the picker step
-        // This determines whether we show 4 or 5 tutorial steps
-        if let screen = NSScreen.main {
-            let otherWindows = WindowManager.shared.getOtherWindows(excludingWindowID: nil, on: screen)
-            hasOtherWindows = !otherWindows.isEmpty
-            debugLog("OnboardingView: Other windows available: \(hasOtherWindows) (\(otherWindows.count) windows)")
-        }
+        // Skip picker step entirely in tutorial - it's unreliable because window state
+        // changes after the left snap, making the upfront check inaccurate
+        hasOtherWindows = false
+        debugLog("OnboardingView: Picker step skipped (always use 4-step tutorial)")
         
         // Prepare the window for tutorial (make it larger)
         OnboardingWindowController.shared.prepareForTutorial()
@@ -421,9 +419,8 @@ struct OnboardingView: View {
             startPickerFallbackTimer()
         }
         
-        // If complete, stop key monitoring and flash menu bar icon
+        // If complete, flash menu bar icon (keep key monitoring for Enter key)
         if nextStep == .complete {
-            stopKeyMonitoring()
             // Flash the menu bar icon to draw attention to it
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 StatusBarController.shared?.flashIcon(times: 5)
@@ -462,6 +459,7 @@ struct OnboardingView: View {
     }
     
     private func completeOnboarding() {
+        stopKeyMonitoring()
         OnboardingManager.shared.markOnboardingComplete()
         onComplete?()
     }

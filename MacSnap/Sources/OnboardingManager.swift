@@ -17,6 +17,7 @@ final class OnboardingManager {
     /// Mark onboarding as complete
     func markOnboardingComplete() {
         UserDefaults.standard.set(true, forKey: hasCompletedOnboardingKey)
+        UserDefaults.standard.synchronize()  // Force sync to disk immediately
         debugLog("OnboardingManager: Onboarding marked complete")
     }
     
